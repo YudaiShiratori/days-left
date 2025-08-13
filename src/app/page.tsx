@@ -2,6 +2,7 @@
 
 import { Settings } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { InstallPwaButton } from '~/components/install-pwa-button';
 
 interface UserSettings {
   birthDate: string;
@@ -73,6 +74,12 @@ function DaysLeftCard() {
               <br />
               あなたの人生時計をスタートします
             </p>
+            <div className="mt-6 rounded-xl border border-green-500/20 bg-green-500/10 p-4">
+              <p className="text-green-300 text-sm">
+                💡
+                このアプリをホーム画面に追加すると、いつでも簡単にアクセスできます
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -609,8 +616,11 @@ export default function Home() {
           <MotivationCard />
         </div>
 
-        <div className="text-center">
-          <SettingsButton />
+        <div className="space-y-4 text-center">
+          <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <SettingsButton />
+            <InstallPwaButton />
+          </div>
         </div>
       </div>
     </main>
