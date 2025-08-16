@@ -154,4 +154,9 @@ self.addEventListener('message', (event) => {
     // クライアントが準備完了した時の処理
     event.ports[0]?.postMessage({ type: 'SW_READY' });
   }
+
+  // バージョン確認リクエスト
+  if (event.data && event.data.type === 'GET_VERSION') {
+    event.ports[0]?.postMessage({ version: SW_VERSION });
+  }
 });

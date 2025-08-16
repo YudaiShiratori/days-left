@@ -20,21 +20,65 @@ export const registerServiceWorker = async (): Promise<void> => {
     return;
   }
 
-  // すべてのService Workerを強制削除してクリーンスタート
-  try {
-    const registrations = await navigator.serviceWorker.getRegistrations();
-    await Promise.all(
-      registrations.map((registration) => registration.unregister())
-    );
+  // 期待されるService Workerバージョン
+  const EXPECTED_SW_VERSION = '2025-08-16-v3-FORCE-RESET';
 
-    // すべてのキャッシュも削除
-    const cacheNames = await caches.keys();
-    await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+  // 既存のService Workerのバージョンチェック
+  const controller = navigator.serviceWorker.controller;
+  if (controller) {
+    try {
+      // 現在のSWにバージョン確認メッセージを送信
+      const messageChannel = new MessageChannel();
+      const versionPromise = new Promise((resolve) => {
+        messageChannel.port1.onmessage = (event) => {
+          resolve(event.data.version);
+        };
+        setTimeout(() => resolve(null), 1000); // 1秒でタイムアウト
+      });
 
-    // 少し待ってから新しいService Workerを登録
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  } catch (_error) {
-    // 削除エラーは無視
+      controller.postMessage({ type: 'GET_VERSION' }, [messageChannel.port2]);
+      const currentVersion = await versionPromise;
+
+      // バージョンが一致しない場合、強制リロード
+      if (currentVersion !== EXPECTED_SW_VERSION) {
+        // すべてのService Workerを強制削除
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(
+          registrations.map((registration) => registration.unregister())
+        );
+
+        // すべてのキャッシュも削除
+        const cacheNames = await caches.keys();
+        await Promise.all(
+          cacheNames.map((cacheName) => caches.delete(cacheName))
+        );
+
+        // ページを強制リロード（キャッシュ無効化）
+        window.location.reload();
+        return;
+      }
+    } catch (_error) {
+      // バージョンチェック失敗時は続行
+    }
+  } else {
+    // Service Workerが制御していない場合、全削除してクリーンスタート
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(
+        registrations.map((registration) => registration.unregister())
+      );
+
+      // すべてのキャッシュも削除
+      const cacheNames = await caches.keys();
+      await Promise.all(
+        cacheNames.map((cacheName) => caches.delete(cacheName))
+      );
+
+      // 少し待ってから新しいService Workerを登録
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    } catch (_error) {
+      // 削除エラーは無視
+    }
   }
 
   const wb = new Workbox('/sw-v2.js');
