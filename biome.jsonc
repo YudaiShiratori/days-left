@@ -23,6 +23,11 @@
             "functions": ["clsx", "cva", "cn"]
           }
         }
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": {
+          "level": "warn"
+        }
       }
     }
   }

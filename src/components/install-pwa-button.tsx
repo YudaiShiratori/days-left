@@ -69,7 +69,7 @@ export function InstallPwaButton() {
   if (isInstalled) {
     return (
       <button
-        className="cursor-not-allowed rounded-xl border-2 border-gray-300 px-6 py-4 font-medium text-base text-gray-500 md:py-2"
+        className="cursor-not-allowed rounded-lg border-2 border-slate-300 bg-white px-6 py-4 font-medium text-base text-slate-500 md:py-2"
         disabled
         type="button"
       >
@@ -80,7 +80,7 @@ export function InstallPwaButton() {
 
   return (
     <button
-      className="rounded-xl border-2 border-gray-600 px-6 py-4 font-medium text-base text-gray-700 transition-colors hover:bg-gray-100 md:py-2 md:text-base"
+      className="rounded-lg border-2 border-slate-300 bg-white px-6 py-4 font-medium text-base text-slate-700 transition-colors hover:bg-slate-50 md:py-2 md:text-base"
       onClick={handleInstallClick}
       type="button"
     >
