@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import { useCallback, useEffect, useState } from 'react';
 import { InstallPwaButton } from '~/components/install-pwa-button';
 
@@ -949,89 +948,69 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <header className="sticky top-0 z-10 bg-white shadow-sm">
-        <div className="mx-auto max-w-4xl px-4">
-          <div className="relative flex items-center justify-center py-4">
-            <Image
-              alt="人生の残り時間アプリのアイコン"
-              className="absolute left-0 h-12 w-12 rounded-xl shadow-sm md:h-14 md:w-14"
-              height={56}
-              src="/icon-192.png"
-              width={56}
-            />
-            <div className="text-center">
-              <h1 className="font-bold text-gray-900 text-xl md:text-2xl">
-                人生の残り時間
-              </h1>
+    <main className="mx-auto max-w-4xl px-4 py-8 md:py-12">
+      <div className="mb-8 text-center">
+        <p className="text-base text-gray-700 md:text-lg">
+          あなたが毎日を大切に過ごすために
+          <br />
+          意識づけするためのアプリです
+        </p>
+      </div>
+
+      {!isEditing && settings && daysLeft !== null ? (
+        <MainDisplay
+          daysLeft={daysLeft}
+          handleEdit={handleEdit}
+          settings={settings}
+          targetDaysLeft={targetDaysLeft}
+        />
+      ) : (
+        <SettingsForm
+          errors={errors}
+          handleCancel={handleCancel}
+          handleSave={handleSave}
+          setTempDay={setTempDay}
+          setTempGender={setTempGender}
+          setTempMonth={setTempMonth}
+          setTempTargets={setTempTargets}
+          setTempYear={setTempYear}
+          settings={settings}
+          tempDay={tempDay}
+          tempGender={tempGender}
+          tempMonth={tempMonth}
+          tempTargets={tempTargets}
+          tempYear={tempYear}
+        />
+      )}
+
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="mx-4 w-full max-w-md rounded-lg bg-white p-6">
+            <h3 className="mb-4 font-bold text-gray-900 text-lg">
+              設定をリセット
+            </h3>
+            <p className="mb-6 text-gray-600">
+              すべての設定がリセットされます。この操作は元に戻せません。
+            </p>
+            <div className="flex gap-3">
+              <button
+                className="flex-1 rounded-lg bg-red-600 py-3 font-medium text-white transition-colors hover:bg-red-700"
+                onClick={handleResetConfirm}
+                type="button"
+              >
+                リセット
+              </button>
+              <button
+                className="flex-1 rounded-lg bg-gray-600 py-3 font-medium text-white transition-colors hover:bg-gray-700"
+                onClick={handleResetCancel}
+                type="button"
+              >
+                キャンセル
+              </button>
             </div>
           </div>
         </div>
-      </header>
-      <main className="mx-auto max-w-4xl px-4 py-8 md:py-12">
-        <div className="mb-8 text-center">
-          <p className="text-base text-gray-700 md:text-lg">
-            あなたが毎日を大切に過ごすために
-            <br />
-            意識づけするためのアプリです
-          </p>
-        </div>
-
-        {!isEditing && settings && daysLeft !== null ? (
-          <MainDisplay
-            daysLeft={daysLeft}
-            handleEdit={handleEdit}
-            settings={settings}
-            targetDaysLeft={targetDaysLeft}
-          />
-        ) : (
-          <SettingsForm
-            errors={errors}
-            handleCancel={handleCancel}
-            handleSave={handleSave}
-            setTempDay={setTempDay}
-            setTempGender={setTempGender}
-            setTempMonth={setTempMonth}
-            setTempTargets={setTempTargets}
-            setTempYear={setTempYear}
-            settings={settings}
-            tempDay={tempDay}
-            tempGender={tempGender}
-            tempMonth={tempMonth}
-            tempTargets={tempTargets}
-            tempYear={tempYear}
-          />
-        )}
-
-        {showResetModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="mx-4 w-full max-w-md rounded-lg bg-white p-6">
-              <h3 className="mb-4 font-bold text-gray-900 text-lg">
-                設定をリセット
-              </h3>
-              <p className="mb-6 text-gray-600">
-                すべての設定がリセットされます。この操作は元に戻せません。
-              </p>
-              <div className="flex gap-3">
-                <button
-                  className="flex-1 rounded-lg bg-red-600 py-3 font-medium text-white transition-colors hover:bg-red-700"
-                  onClick={handleResetConfirm}
-                  type="button"
-                >
-                  リセット
-                </button>
-                <button
-                  className="flex-1 rounded-lg bg-gray-600 py-3 font-medium text-white transition-colors hover:bg-gray-700"
-                  onClick={handleResetCancel}
-                  type="button"
-                >
-                  キャンセル
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
-    </div>
+      )}
+    </main>
   );
 }

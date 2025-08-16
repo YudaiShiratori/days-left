@@ -47,7 +47,6 @@ describe('Days Left App', () => {
   it('設定が未設定でもデフォルト設定で表示される', () => {
     render(<Home />);
 
-    expect(screen.getByText('人生の残り時間')).toBeInTheDocument();
     expect(screen.getByText('今年の終わりまで')).toBeInTheDocument();
     expect(screen.getByText('人生の残り日数')).toBeInTheDocument();
     expect(screen.getByText('設定を変更')).toBeInTheDocument();

@@ -2,6 +2,7 @@ import '~/styles/globals.css';
 
 import type { Metadata } from 'next';
 import { Noto_Sans_JP } from 'next/font/google';
+import Image from 'next/image';
 
 import { TRPCReactProvider } from '~/trpc/react';
 
@@ -70,7 +71,29 @@ export default function RootLayout({
         <script src="/sw-register.js" />
       </head>
       <body>
-        <TRPCReactProvider>{children}</TRPCReactProvider>
+        <TRPCReactProvider>
+          <div className="min-h-screen bg-slate-100">
+            <header className="sticky top-0 z-10 bg-white shadow-sm">
+              <div className="mx-auto max-w-4xl px-4">
+                <div className="relative flex items-center justify-center py-4">
+                  <Image
+                    alt="人生の残り時間アプリのアイコン"
+                    className="absolute left-0 h-12 w-12 rounded-xl shadow-sm md:h-14 md:w-14"
+                    height={56}
+                    src="/icon-192.png"
+                    width={56}
+                  />
+                  <div className="text-center">
+                    <h1 className="font-bold text-gray-900 text-xl md:text-2xl">
+                      人生の残り時間
+                    </h1>
+                  </div>
+                </div>
+              </div>
+            </header>
+            {children}
+          </div>
+        </TRPCReactProvider>
       </body>
     </html>
   );
