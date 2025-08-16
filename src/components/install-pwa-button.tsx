@@ -69,7 +69,7 @@ export function InstallPwaButton() {
   if (isInstalled) {
     return (
       <button
-        className="cursor-not-allowed rounded-lg border-2 border-gray-300 px-6 py-2 text-gray-500"
+        className="cursor-not-allowed rounded-xl border-2 border-gray-300 px-6 py-4 font-medium text-base text-gray-500 md:py-2"
         disabled
         type="button"
       >
@@ -80,11 +80,11 @@ export function InstallPwaButton() {
 
   return (
     <button
-      className="rounded-lg border-2 border-gray-600 px-6 py-2 text-gray-700 transition-colors hover:bg-gray-100"
+      className="rounded-xl border-2 border-gray-600 px-6 py-4 font-medium text-base text-gray-700 transition-colors hover:bg-gray-100 md:py-2 md:text-base"
       onClick={handleInstallClick}
       type="button"
     >
-      ↓ ホーム画面に追加
+      スマホのホーム画面に追加
     </button>
   );
 }

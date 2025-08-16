@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { InstallPwaButton } from '~/components/install-pwa-button';
 
 interface TargetDate {
   id: string;
@@ -23,7 +24,7 @@ function convertLegacySettings(parsed: unknown): UserSettings | null {
   if (typeof parsed !== 'object' || parsed === null) {
     return null;
   }
-  
+
   const parsedObj = parsed as Record<string, unknown>;
   // 旧形式のデータを新形式に変換
   if (parsedObj.birthDate && !parsedObj.birthYear) {
@@ -59,24 +60,25 @@ function convertLegacySettings(parsed: unknown): UserSettings | null {
     };
 
     // 旧形式の単一targetDateがある場合
-    if (parsed.targetDate && !parsed.targets) {
+    if (parsedObj.targetDate && !parsedObj.targets) {
+      const targetDate = parsedObj.targetDate as any;
       newSettings.targets = [
         {
           id: 'legacy',
-          year: parsed.targetDate.year,
-          month: parsed.targetDate.month,
-          day: parsed.targetDate.day,
-          label: parsed.targetDate.label,
+          year: targetDate.year,
+          month: targetDate.month,
+          day: targetDate.day,
+          label: targetDate.label,
         },
       ];
-    } else if (parsed.targets) {
+    } else if (parsedObj.targets) {
       // 新形式のtargetsがある場合
-      newSettings.targets = parsed.targets;
+      newSettings.targets = parsedObj.targets as TargetDate[];
     }
 
     return newSettings;
   }
-  
+
   return null;
 }
 
@@ -108,37 +110,76 @@ function useAppState() {
     }>
   >([]);
 
+  // エラー状態の管理
+  const [errors, setErrors] = useState<{
+    birthDate?: string;
+    targets?: Record<string, string>;
+  }>({});
+
+  // リセット確認モーダル
+  const [showResetModal, setShowResetModal] = useState(false);
+
   return {
-    settings, setSettings,
-    daysLeft, setDaysLeft,
-    targetDaysLeft, setTargetDaysLeft,
-    isEditing, setIsEditing,
-    isLoading, setIsLoading,
-    activeTab, setActiveTab,
-    tempYear, setTempYear,
-    tempMonth, setTempMonth,
-    tempDay, setTempDay,
-    tempGender, setTempGender,
-    tempTargets, setTempTargets
+    settings,
+    setSettings,
+    daysLeft,
+    setDaysLeft,
+    targetDaysLeft,
+    setTargetDaysLeft,
+    isEditing,
+    setIsEditing,
+    isLoading,
+    setIsLoading,
+    activeTab,
+    setActiveTab,
+    tempYear,
+    setTempYear,
+    tempMonth,
+    setTempMonth,
+    tempDay,
+    setTempDay,
+    tempGender,
+    setTempGender,
+    tempTargets,
+    setTempTargets,
+    errors,
+    setErrors,
+    showResetModal,
+    setShowResetModal,
   };
 }
 
 export default function Home() {
   const {
-    settings, setSettings,
-    daysLeft, setDaysLeft,
-    targetDaysLeft, setTargetDaysLeft,
-    isEditing, setIsEditing,
-    isLoading, setIsLoading,
-    activeTab, setActiveTab,
-    tempYear, setTempYear,
-    tempMonth, setTempMonth,
-    tempDay, setTempDay,
-    tempGender, setTempGender,
-    tempTargets, setTempTargets
+    settings,
+    setSettings,
+    daysLeft,
+    setDaysLeft,
+    targetDaysLeft,
+    setTargetDaysLeft,
+    isEditing,
+    setIsEditing,
+    isLoading,
+    setIsLoading,
+    activeTab,
+    setActiveTab,
+    tempYear,
+    setTempYear,
+    tempMonth,
+    setTempMonth,
+    tempDay,
+    setTempDay,
+    tempGender,
+    setTempGender,
+    tempTargets,
+    setTempTargets,
+    errors,
+    setErrors,
+    showResetModal,
+    setShowResetModal,
   } = useAppState();
 
-  // 日本人の平均寿命を計算（厚生労働省2023年データ）
+  // 日本人の平均寿命を計算（厚生労働省2024年データ）
   const calculateLifeExpectancy = useCallback(
     (birthYear: number, gender: 'male' | 'female') => {
       // 2024年の日本の平均寿命（厚生労働省最新データ）
@@ -146,22 +187,11 @@ export default function Home() {
       const baseMaleLifeExpectancy = 81.09;
       const baseFemaleLifeExpectancy = 87.13;
 
-      // 出生年による調整（医療技術の向上により年々延びている傾向）
-      const baseYear = 2024;
-      const yearDifference = baseYear - birthYear;
-
-      // 1年につき約0.2歳ずつ短くなる（過去）または長くなる（未来）傾向
-      const yearAdjustment = -yearDifference * 0.2;
-
+      // シンプルに基本寿命を使用（複雑な調整を削除）
       const baseExpectancy =
         gender === 'male' ? baseMaleLifeExpectancy : baseFemaleLifeExpectancy;
-      const adjustedExpectancy = baseExpectancy + yearAdjustment;
 
-      // 現実的な範囲に制限（65〜95歳）
-      return Math.max(
-        65,
-        Math.min(95, Math.round(adjustedExpectancy * 10) / 10)
-      );
+      return Math.round(baseExpectancy * 10) / 10;
     },
     []
   );
@@ -213,14 +243,17 @@ export default function Home() {
   useEffect(() => {
     setIsLoading(true);
     const savedSettings = localStorage.getItem('daysLeftSettings');
-    
+
     if (savedSettings) {
       try {
         const parsed = JSON.parse(savedSettings);
         const convertedSettings = convertLegacySettings(parsed);
-        
+
         if (convertedSettings) {
-          localStorage.setItem('daysLeftSettings', JSON.stringify(convertedSettings));
+          localStorage.setItem(
+            'daysLeftSettings',
+            JSON.stringify(convertedSettings)
+          );
           setSettings(convertedSettings);
         } else {
           localStorage.removeItem('daysLeftSettings');
@@ -233,7 +266,7 @@ export default function Home() {
     } else {
       setIsEditing(true);
     }
-    
+
     setIsLoading(false);
   }, []);
 
@@ -330,36 +363,78 @@ export default function Home() {
     );
   };
 
+  const validateDate = (year: number, month: number, day: number) => {
+    const date = new Date(year, month - 1, day);
+    return (
+      date.getFullYear() === year &&
+      date.getMonth() === month - 1 &&
+      date.getDate() === day
+    );
+  };
+
   const handleSave = () => {
     const year = Number.parseInt(tempYear, 10);
     const month = Number.parseInt(tempMonth, 10);
     const day = Number.parseInt(tempDay, 10);
 
-    if (
-      year &&
-      month &&
-      day &&
-      year > 1900 &&
-      year < 2100 &&
-      month >= 1 &&
-      month <= 12 &&
-      day >= 1 &&
-      day <= 31
-    ) {
-      // 有効な目標日のみをフィルタリング
-      const validTargets: TargetDate[] = tempTargets
-        .filter(
-          (target) =>
-            target.year && target.month && target.day && target.label.trim()
-        )
-        .map((target) => ({
-          id: target.id,
-          year: Number.parseInt(target.year, 10),
-          month: Number.parseInt(target.month, 10),
-          day: Number.parseInt(target.day, 10),
-          label: target.label.trim(),
-        }));
+    const newErrors: typeof errors = {};
 
+    // 生年月日のバリデーション
+    if (!(year && month && day)) {
+      newErrors.birthDate = '生年月日を入力してください';
+    } else if (year < 1900 || year > 2100) {
+      newErrors.birthDate = '年は1900年から2100年の間で入力してください';
+    } else if (month < 1 || month > 12) {
+      newErrors.birthDate = '月は1から12の間で入力してください';
+    } else if (day < 1 || day > 31) {
+      newErrors.birthDate = '日は1から31の間で入力してください';
+    } else if (!validateDate(year, month, day)) {
+      newErrors.birthDate = '存在しない日付です';
+    } else if (new Date(year, month - 1, day) > new Date()) {
+      newErrors.birthDate = '未来の日付は設定できません';
+    }
+
+    // 目標日のバリデーション
+    const targetErrors: Record<string, string> = {};
+    const validTargets: TargetDate[] = [];
+
+    for (const target of tempTargets) {
+      if (!target.label.trim()) {
+        targetErrors[target.id] = '目標の名前を入力してください';
+        continue;
+      }
+
+      const targetYear = Number.parseInt(target.year, 10);
+      const targetMonth = Number.parseInt(target.month, 10);
+      const targetDay = Number.parseInt(target.day, 10);
+
+      if (!(target.year && target.month && target.day)) {
+        targetErrors[target.id] = '日付を入力してください';
+        continue;
+      }
+
+      if (!validateDate(targetYear, targetMonth, targetDay)) {
+        targetErrors[target.id] = '存在しない日付です';
+        continue;
+      }
+
+      validTargets.push({
+        id: target.id,
+        year: targetYear,
+        month: targetMonth,
+        day: targetDay,
+        label: target.label.trim(),
+      });
+    }
+
+    if (Object.keys(targetErrors).length > 0) {
+      newErrors.targets = targetErrors;
+    }
+
+    setErrors(newErrors);
+
+    // エラーがない場合のみ保存
+    if (Object.keys(newErrors).length === 0) {
       const newSettings: UserSettings = {
         birthYear: year,
         birthMonth: month,
@@ -371,16 +446,22 @@ export default function Home() {
       localStorage.setItem('daysLeftSettings', JSON.stringify(newSettings));
       setSettings(newSettings);
       setIsEditing(false);
+      setErrors({});
     }
   };
 
   const handleCancel = () => {
     if (settings) {
       setIsEditing(false);
+      setErrors({});
     }
   };
 
-  const handleReset = () => {
+  const handleResetClick = () => {
+    setShowResetModal(true);
+  };
+
+  const handleResetConfirm = () => {
     localStorage.removeItem('daysLeftSettings');
     setSettings(null);
     setDaysLeft(null);
@@ -392,6 +473,12 @@ export default function Home() {
     setTempTargets([]);
     setActiveTab('life');
     setIsEditing(true);
+    setShowResetModal(false);
+    setErrors({});
+  };
+
+  const handleResetCancel = () => {
+    setShowResetModal(false);
   };
 
   // 年のオプション生成
@@ -430,8 +517,18 @@ export default function Home() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-gray-50 to-white">
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 animate-spin rounded-full border-4 border-gray-200 border-t-gray-600" />
-          <p className="mt-4 text-gray-600">読み込み中...</p>
+          <div className="mx-auto h-16 w-16 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
+          <div className="mt-6 space-y-2">
+            <p className="font-medium text-gray-900 text-lg">
+              設定を読み込んでいます
+            </p>
+            <p className="text-gray-600 text-sm">しばらくお待ちください</p>
+          </div>
+          <div className="mt-4">
+            <div className="mx-auto h-1 w-48 overflow-hidden rounded-full bg-gray-200">
+              <div className="h-full w-full animate-pulse bg-gradient-to-r from-blue-400 to-blue-600" />
+            </div>
+          </div>
         </div>
       </main>
     );
@@ -454,9 +551,9 @@ export default function Home() {
             {/* タブ切り替え */}
             {settings.targets.length > 0 && (
               <div className="mb-6 flex justify-center">
-                <div className="inline-flex flex-wrap gap-1 rounded-lg bg-gray-100 p-1">
+                <div className="inline-flex max-w-full flex-wrap gap-1 rounded-lg bg-gray-100 p-1">
                   <button
-                    className={`rounded-md px-4 py-2 font-medium transition-colors ${
+                    className={`rounded-md px-3 py-2 font-medium text-sm transition-colors md:px-4 md:text-base ${
                       activeTab === 'life'
                         ? 'bg-white text-gray-900 shadow-sm'
                         : 'text-gray-600 hover:text-gray-900'
@@ -470,7 +567,7 @@ export default function Home() {
                   </button>
                   {settings.targets.map((target) => (
                     <button
-                      className={`rounded-md px-4 py-2 font-medium transition-colors ${
+                      className={`rounded-md px-3 py-2 font-medium text-sm transition-colors md:px-4 md:text-base ${
                         activeTab === target.id
                           ? 'bg-white text-gray-900 shadow-sm'
                           : 'text-gray-600 hover:text-gray-900'
@@ -479,7 +576,9 @@ export default function Home() {
                       onClick={() => setActiveTab(target.id)}
                       type="button"
                     >
-                      {target.label}
+                      <span className="block max-w-[120px] truncate md:max-w-none">
+                        {target.label}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -487,11 +586,11 @@ export default function Home() {
             )}
 
             {/* メインカード */}
-            <div className="rounded-2xl bg-white p-8 shadow-lg md:p-12">
+            <div className="rounded-2xl bg-white p-6 shadow-lg md:p-12">
               {/* 残り日数表示 */}
-              <div className="mb-8 text-center">
-                <div className="mb-2">
-                  <span className="text-gray-500 text-sm">
+              <div className="mb-6 text-center md:mb-8">
+                <div className="mb-3">
+                  <span className="text-gray-500 text-base md:text-sm">
                     {activeTab !== 'life' &&
                     displayDays !== null &&
                     displayDays !== undefined &&
@@ -500,20 +599,20 @@ export default function Home() {
                       : 'あと'}
                   </span>
                 </div>
-                <div className="font-bold text-6xl text-gray-900 tabular-nums md:text-7xl lg:text-8xl">
+                <div className="font-bold text-5xl text-gray-900 tabular-nums sm:text-6xl md:text-7xl lg:text-8xl">
                   {displayDays !== null && displayDays !== undefined
                     ? Math.abs(displayDays).toLocaleString()
                     : '---'}
                 </div>
-                <div className="mt-2 text-2xl text-gray-700 md:text-3xl">
+                <div className="mt-3 text-xl text-gray-700 md:mt-2 md:text-2xl lg:text-3xl">
                   日
                 </div>
               </div>
 
               {/* プログレスバー（人生タブの時のみ） */}
               {activeTab === 'life' && (
-                <div className="mb-6">
-                  <div className="mb-2 flex justify-between text-gray-600 text-sm">
+                <div className="mb-4 md:mb-6">
+                  <div className="mb-3 flex justify-between text-gray-600 text-xs md:mb-2 md:text-sm">
                     <span>0歳</span>
                     <span className="font-medium">
                       {progressPercentage.toFixed(1)}% 経過
@@ -526,7 +625,7 @@ export default function Home() {
                       歳
                     </span>
                   </div>
-                  <div className="h-3 overflow-hidden rounded-full bg-gray-200">
+                  <div className="h-4 overflow-hidden rounded-full bg-gray-200 md:h-3">
                     <div
                       className="h-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-1000"
                       style={{ width: `${progressPercentage}%` }}
@@ -536,7 +635,7 @@ export default function Home() {
               )}
 
               {/* 設定情報 */}
-              <div className="text-center text-gray-600 text-sm">
+              <div className="text-center text-gray-600 text-xs leading-relaxed md:text-sm">
                 {activeTab === 'life'
                   ? `${settings.birthYear}年${settings.birthMonth}月${settings.birthDay}日生まれ・${settings.gender === 'male' ? '男性' : '女性'}・平均寿命${calculateLifeExpectancy(settings.birthYear, settings.gender).toFixed(1)}歳`
                   : currentTarget &&
@@ -545,27 +644,25 @@ export default function Home() {
             </div>
 
             {/* アクションボタン */}
-            <div className="flex flex-col justify-center gap-3 sm:flex-row">
-              <button
-                className="rounded-lg bg-gray-900 px-6 py-3 font-medium text-white transition-colors hover:bg-gray-800"
-                onClick={handleEdit}
-                type="button"
-              >
-                設定を変更
-              </button>
-              <button
-                className="rounded-lg border border-gray-300 bg-white px-6 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50"
-                onClick={handleReset}
-                type="button"
-              >
-                リセット
-              </button>
+            <div className="flex flex-col justify-center gap-4 sm:gap-3">
+              <div className="flex justify-center">
+                <button
+                  className="rounded-xl bg-gray-900 px-6 py-4 font-medium text-base text-white transition-colors hover:bg-gray-800 md:px-6 md:py-3 md:text-base"
+                  onClick={handleEdit}
+                  type="button"
+                >
+                  設定を変更
+                </button>
+              </div>
+              <div className="flex justify-center">
+                <InstallPwaButton />
+              </div>
             </div>
           </div>
         ) : (
           /* 編集モード */
-          <div className="rounded-2xl bg-white p-8 shadow-lg md:p-12">
-            <h2 className="mb-8 text-center font-bold text-2xl text-gray-900">
+          <div className="rounded-2xl bg-white p-6 shadow-lg md:p-12">
+            <h2 className="mb-6 text-center font-bold text-xl text-gray-900 md:mb-8 md:text-2xl">
               あなたの情報を入力
             </h2>
 
@@ -575,10 +672,10 @@ export default function Home() {
                 <div className="mb-3 block font-medium text-gray-700 text-sm">
                   生年月日
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 gap-2 md:gap-3">
                   <div>
                     <select
-                      className="w-full rounded-lg border-2 border-gray-300 px-3 py-3 text-center font-medium text-lg focus:border-blue-500 focus:outline-none"
+                      className="w-full rounded-lg border-2 border-gray-300 px-2 py-3 text-center font-medium text-base focus:border-blue-500 focus:outline-none md:px-3 md:text-lg"
                       onChange={(e) => setTempYear(e.target.value)}
                       value={tempYear}
                     >
@@ -592,7 +689,7 @@ export default function Home() {
                   </div>
                   <div>
                     <select
-                      className="w-full rounded-lg border-2 border-gray-300 px-3 py-3 text-center font-medium text-lg focus:border-blue-500 focus:outline-none"
+                      className="w-full rounded-lg border-2 border-gray-300 px-2 py-3 text-center font-medium text-base focus:border-blue-500 focus:outline-none md:px-3 md:text-lg"
                       onChange={(e) => setTempMonth(e.target.value)}
                       value={tempMonth}
                     >
@@ -606,7 +703,7 @@ export default function Home() {
                   </div>
                   <div>
                     <select
-                      className="w-full rounded-lg border-2 border-gray-300 px-3 py-3 text-center font-medium text-lg focus:border-blue-500 focus:outline-none"
+                      className="w-full rounded-lg border-2 border-gray-300 px-2 py-3 text-center font-medium text-base focus:border-blue-500 focus:outline-none md:px-3 md:text-lg"
                       onChange={(e) => setTempDay(e.target.value)}
                       value={tempDay}
                     >
@@ -619,6 +716,11 @@ export default function Home() {
                     </select>
                   </div>
                 </div>
+                {errors.birthDate && (
+                  <p className="mt-2 text-red-600 text-sm">
+                    {errors.birthDate}
+                  </p>
+                )}
               </div>
 
               {/* 性別選択 */}
@@ -626,7 +728,7 @@ export default function Home() {
                 <div className="mb-3 block font-medium text-gray-700 text-sm">
                   性別
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <button
                     className={`rounded-lg border-2 px-4 py-3 font-medium transition-colors ${
                       tempGender === 'male'
@@ -753,6 +855,11 @@ export default function Home() {
                           </select>
                         </div>
                       </div>
+                      {errors.targets?.[target.id] && (
+                        <p className="mt-2 text-red-600 text-sm">
+                          {errors.targets[target.id]}
+                        </p>
+                      )}
                     </div>
                   ))}
 
@@ -766,10 +873,10 @@ export default function Home() {
             </div>
 
             {/* ボタン */}
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-4 sm:flex-row sm:gap-3">
               {settings && (
                 <button
-                  className="flex-1 rounded-lg border border-gray-300 bg-white px-6 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                  className="order-2 rounded-xl border border-gray-300 bg-white px-6 py-4 font-medium text-base text-gray-700 transition-colors hover:bg-gray-50 sm:order-1 sm:flex-1 sm:py-3"
                   onClick={handleCancel}
                   type="button"
                 >
@@ -777,7 +884,7 @@ export default function Home() {
                 </button>
               )}
               <button
-                className="flex-1 rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                className="order-1 rounded-xl bg-blue-600 px-6 py-4 font-medium text-base text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300 sm:order-2 sm:flex-1 sm:py-3"
                 disabled={!(tempYear && tempMonth && tempDay)}
                 onClick={handleSave}
                 type="button"
@@ -788,6 +895,36 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* リセット確認モーダル */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="mb-4 font-bold text-lg text-gray-900">
+              データをリセットしますか？
+            </h3>
+            <p className="mb-6 text-gray-600 text-sm">
+              すべての設定が削除され、元に戻すことはできません。本当にリセットしますか？
+            </p>
+            <div className="flex gap-3">
+              <button
+                className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                onClick={handleResetCancel}
+                type="button"
+              >
+                キャンセル
+              </button>
+              <button
+                className="flex-1 rounded-lg bg-red-600 px-4 py-3 font-medium text-white transition-colors hover:bg-red-700"
+                onClick={handleResetConfirm}
+                type="button"
+              >
+                リセット
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
