@@ -42,24 +42,7 @@ export default function RootLayout({
   return (
     <html className={`${notoSansJP.variable}`} lang="ja">
       <head>
-        {/* eslint-disable-next-line security/noDangerouslySetInnerHtml */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js')
-                    .then(function(registration) {
-                      console.log('SW registered: ', registration);
-                    })
-                    .catch(function(registrationError) {
-                      console.log('SW registration failed: ', registrationError);
-                    });
-                });
-              }
-            `,
-          }}
-        />
+        <script src="/sw-register.js" />
       </head>
       <body>
         <TRPCReactProvider>{children}</TRPCReactProvider>
