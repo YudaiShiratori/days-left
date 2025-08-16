@@ -257,14 +257,77 @@ export default function Home() {
           setSettings(convertedSettings);
         } else {
           localStorage.removeItem('daysLeftSettings');
-          setIsEditing(true);
+          // 初回利用時はサンプルデータで設定を自動作成
+          const today = new Date();
+          const currentYear = today.getFullYear();
+          const defaultSettings: UserSettings = {
+            birthYear: currentYear - 30,
+            birthMonth: 1,
+            birthDay: 1,
+            gender: 'male',
+            targets: [
+              {
+                id: 'sample-newyear',
+                year: currentYear,
+                month: 12,
+                day: 31,
+                label: '今年の終わりまで',
+              },
+            ],
+          };
+          localStorage.setItem(
+            'daysLeftSettings',
+            JSON.stringify(defaultSettings)
+          );
+          setSettings(defaultSettings);
         }
       } catch (_e) {
         localStorage.removeItem('daysLeftSettings');
-        setIsEditing(true);
+        // エラー時もサンプルデータで設定を自動作成
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const defaultSettings: UserSettings = {
+          birthYear: currentYear - 30,
+          birthMonth: 1,
+          birthDay: 1,
+          gender: 'male',
+          targets: [
+            {
+              id: 'sample-newyear',
+              year: currentYear,
+              month: 12,
+              day: 31,
+              label: '今年の終わりまで',
+            },
+          ],
+        };
+        localStorage.setItem(
+          'daysLeftSettings',
+          JSON.stringify(defaultSettings)
+        );
+        setSettings(defaultSettings);
       }
     } else {
-      setIsEditing(true);
+      // 初回利用時はサンプルデータで設定を自動作成
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const defaultSettings: UserSettings = {
+        birthYear: currentYear - 30,
+        birthMonth: 1,
+        birthDay: 1,
+        gender: 'male',
+        targets: [
+          {
+            id: 'sample-newyear',
+            year: currentYear,
+            month: 12,
+            day: 31,
+            label: '今年の終わりまで',
+          },
+        ],
+      };
+      localStorage.setItem('daysLeftSettings', JSON.stringify(defaultSettings));
+      setSettings(defaultSettings);
     }
 
     setIsLoading(false);
@@ -328,11 +391,21 @@ export default function Home() {
     } else {
       // デフォルト値を設定
       const today = new Date();
+      const currentYear = today.getFullYear();
       setTempYear((today.getFullYear() - 30).toString());
       setTempMonth('1');
       setTempDay('1');
       setTempGender('male');
-      setTempTargets([]);
+      // サンプル目標日を初期設定
+      setTempTargets([
+        {
+          id: 'sample-newyear',
+          year: currentYear.toString(),
+          month: '12',
+          day: '31',
+          label: '今年の終わりまで',
+        },
+      ]);
     }
     setIsEditing(true);
   };
@@ -470,7 +543,18 @@ export default function Home() {
     setTempMonth('');
     setTempDay('');
     setTempGender('male');
-    setTempTargets([]);
+    // リセット時もサンプル目標日を設定
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    setTempTargets([
+      {
+        id: 'sample-newyear',
+        year: currentYear.toString(),
+        month: '12',
+        day: '31',
+        label: '今年の終わりまで',
+      },
+    ]);
     setActiveTab('life');
     setIsEditing(true);
     setShowResetModal(false);
@@ -535,7 +619,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+    <main className="min-h-screen bg-slate-100">
       <div className="mx-auto max-w-4xl px-4 py-8 md:py-12">
         {/* ヘッダー */}
         <header className="mb-8 text-center">
@@ -548,98 +632,61 @@ export default function Home() {
         {/* メインコンテンツ */}
         {!isEditing && settings && daysLeft !== null ? (
           <div className="space-y-8">
-            {/* タブ切り替え */}
+            {/* 目標日の残り日数 */}
             {settings.targets.length > 0 && (
-              <div className="mb-6 flex justify-center">
-                <div className="inline-flex max-w-full flex-wrap gap-1 rounded-lg bg-gray-100 p-1">
-                  <button
-                    className={`rounded-md px-3 py-2 font-medium text-sm transition-colors md:px-4 md:text-base ${
-                      activeTab === 'life'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                    onClick={() => {
-                      setActiveTab('life');
-                    }}
-                    type="button"
-                  >
-                    人生の残り
-                  </button>
-                  {settings.targets.map((target) => (
-                    <button
-                      className={`rounded-md px-3 py-2 font-medium text-sm transition-colors md:px-4 md:text-base ${
-                        activeTab === target.id
-                          ? 'bg-white text-gray-900 shadow-sm'
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
-                      key={target.id}
-                      onClick={() => setActiveTab(target.id)}
-                      type="button"
-                    >
-                      <span className="block max-w-[120px] truncate md:max-w-none">
+              <div className="space-y-8">
+                {settings.targets.map((target) => (
+                  <div className="mb-8" key={target.id}>
+                    <div className="mb-4 text-center">
+                      <h2 className="font-bold text-2xl text-gray-900 md:text-3xl">
                         {target.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                      </h2>
+                    </div>
+                    <div className="rounded-3xl bg-blue-900 p-8 shadow-2xl md:p-16">
+                      <div className="text-center">
+                        <div className="mb-4">
+                          <span className="text-2xl text-blue-300 md:text-3xl">
+                            {targetDaysLeft[target.id] < 0 ? '経過' : 'あと'}
+                          </span>
+                        </div>
+                        <div className="font-black text-6xl text-white tabular-nums sm:text-7xl md:text-8xl lg:text-9xl">
+                          {targetDaysLeft[target.id] !== undefined
+                            ? Math.abs(
+                                targetDaysLeft[target.id]
+                              ).toLocaleString()
+                            : '---'}
+                        </div>
+                        <div className="mt-4 text-3xl text-blue-300 md:text-4xl lg:text-5xl">
+                          日
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
-            {/* メインカード */}
-            <div className="rounded-2xl bg-white p-6 shadow-lg md:p-12">
-              {/* 残り日数表示 */}
-              <div className="mb-6 text-center md:mb-8">
-                <div className="mb-3">
-                  <span className="text-gray-500 text-base md:text-sm">
-                    {activeTab !== 'life' &&
-                    displayDays !== null &&
-                    displayDays !== undefined &&
-                    displayDays < 0
-                      ? '経過'
-                      : 'あと'}
-                  </span>
-                </div>
-                <div className="font-bold text-5xl text-gray-900 tabular-nums sm:text-6xl md:text-7xl lg:text-8xl">
-                  {displayDays !== null && displayDays !== undefined
-                    ? Math.abs(displayDays).toLocaleString()
-                    : '---'}
-                </div>
-                <div className="mt-3 text-xl text-gray-700 md:mt-2 md:text-2xl lg:text-3xl">
-                  日
-                </div>
+            {/* 人生の残り日数 */}
+            <div className="mb-8">
+              <div className="mb-4 text-center">
+                <h2 className="font-bold text-2xl text-gray-900 md:text-3xl">
+                  人生の残り日数
+                </h2>
               </div>
-
-              {/* プログレスバー（人生タブの時のみ） */}
-              {activeTab === 'life' && (
-                <div className="mb-4 md:mb-6">
-                  <div className="mb-3 flex justify-between text-gray-600 text-xs md:mb-2 md:text-sm">
-                    <span>0歳</span>
-                    <span className="font-medium">
-                      {progressPercentage.toFixed(1)}% 経過
-                    </span>
-                    <span>
-                      {calculateLifeExpectancy(
-                        settings.birthYear,
-                        settings.gender
-                      ).toFixed(0)}
-                      歳
+              <div className="rounded-3xl bg-slate-900 p-8 shadow-2xl md:p-16">
+                <div className="text-center">
+                  <div className="mb-4">
+                    <span className="text-2xl text-slate-300 md:text-3xl">
+                      あと
                     </span>
                   </div>
-                  <div className="h-4 overflow-hidden rounded-full bg-gray-200 md:h-3">
-                    <div
-                      className="h-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-1000"
-                      style={{ width: `${progressPercentage}%` }}
-                    />
+                  <div className="font-black text-6xl text-white tabular-nums sm:text-7xl md:text-8xl lg:text-9xl">
+                    {daysLeft !== null ? daysLeft.toLocaleString() : '---'}
+                  </div>
+                  <div className="mt-4 text-3xl text-slate-300 md:text-4xl lg:text-5xl">
+                    日
                   </div>
                 </div>
-              )}
-
-              {/* 設定情報 */}
-              <div className="text-center text-gray-600 text-xs leading-relaxed md:text-sm">
-                {activeTab === 'life'
-                  ? `${settings.birthYear}年${settings.birthMonth}月${settings.birthDay}日生まれ・${settings.gender === 'male' ? '男性' : '女性'}・平均寿命${calculateLifeExpectancy(settings.birthYear, settings.gender).toFixed(1)}歳`
-                  : currentTarget &&
-                    `${currentTarget.year}年${currentTarget.month}月${currentTarget.day}日 - ${currentTarget.label}`}
               </div>
             </div>
 
@@ -647,7 +694,7 @@ export default function Home() {
             <div className="flex flex-col justify-center gap-4 sm:gap-3">
               <div className="flex justify-center">
                 <button
-                  className="rounded-xl bg-gray-900 px-6 py-4 font-medium text-base text-white transition-colors hover:bg-gray-800 md:px-6 md:py-3 md:text-base"
+                  className="rounded-lg bg-blue-600 px-6 py-4 font-medium text-base text-white transition-colors hover:bg-blue-700 md:px-6 md:py-3 md:text-base"
                   onClick={handleEdit}
                   type="button"
                 >
@@ -662,7 +709,7 @@ export default function Home() {
         ) : (
           /* 編集モード */
           <div className="rounded-2xl bg-white p-6 shadow-lg md:p-12">
-            <h2 className="mb-6 text-center font-bold text-xl text-gray-900 md:mb-8 md:text-2xl">
+            <h2 className="mb-6 text-center font-bold text-gray-900 text-xl md:mb-8 md:text-2xl">
               あなたの情報を入力
             </h2>
 
@@ -786,7 +833,7 @@ export default function Home() {
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-gray-700 text-sm">
-                          目標 #{target.id.split('-')[1]}
+                          目標
                         </span>
                         <button
                           className="text-red-600 text-sm hover:text-red-800"
@@ -884,7 +931,7 @@ export default function Home() {
                 </button>
               )}
               <button
-                className="order-1 rounded-xl bg-blue-600 px-6 py-4 font-medium text-base text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300 sm:order-2 sm:flex-1 sm:py-3"
+                className="order-1 rounded-lg bg-blue-600 px-6 py-4 font-medium text-base text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300 sm:order-2 sm:flex-1 sm:py-3"
                 disabled={!(tempYear && tempMonth && tempDay)}
                 onClick={handleSave}
                 type="button"
@@ -900,7 +947,7 @@ export default function Home() {
       {showResetModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="mb-4 font-bold text-lg text-gray-900">
+            <h3 className="mb-4 font-bold text-gray-900 text-lg">
               データをリセットしますか？
             </h3>
             <p className="mb-6 text-gray-600 text-sm">
