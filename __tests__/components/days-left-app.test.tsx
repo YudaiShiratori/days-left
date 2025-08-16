@@ -2,6 +2,22 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Home from '~/app/page';
 
+// Next.js Imageコンポーネントのモック
+vi.mock('next/image', () => ({
+  default: vi.fn((props) => {
+    const { src, ...otherProps } = props;
+    // eslint-disable-next-line @next/next/no-img-element
+    return (
+      // biome-ignore lint/performance/noImgElement: Test mock for Next.js Image component
+      <img
+        {...otherProps}
+        alt={props.alt || ''}
+        src={typeof src === 'string' ? src : '/test-image.png'}
+      />
+    );
+  }),
+}));
+
 // 正規表現は使用されなくなったため削除
 
 // LocalStorageのモック

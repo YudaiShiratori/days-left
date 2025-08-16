@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useCallback, useEffect, useState } from 'react';
 import { InstallPwaButton } from '~/components/install-pwa-button';
 
@@ -948,14 +949,33 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100">
-      <div className="mx-auto max-w-4xl px-4 py-8 md:py-12">
-        <header className="mb-8 text-center">
-          <h1 className="mb-2 font-bold text-3xl text-gray-900 md:text-4xl">
-            人生の残り時間
-          </h1>
-          <p className="text-gray-600">一日一日を大切に</p>
-        </header>
+    <div className="min-h-screen bg-slate-100">
+      <header className="sticky top-0 z-10 bg-white shadow-sm">
+        <div className="mx-auto max-w-4xl px-4">
+          <div className="relative flex items-center justify-center py-4">
+            <Image
+              alt="人生の残り時間アプリのアイコン"
+              className="absolute left-0 h-12 w-12 rounded-xl shadow-sm md:h-14 md:w-14"
+              height={56}
+              src="/icon-192.png"
+              width={56}
+            />
+            <div className="text-center">
+              <h1 className="font-bold text-gray-900 text-xl md:text-2xl">
+                人生の残り時間
+              </h1>
+            </div>
+          </div>
+        </div>
+      </header>
+      <main className="mx-auto max-w-4xl px-4 py-8 md:py-12">
+        <div className="mb-8 text-center">
+          <p className="text-base text-gray-700 md:text-lg">
+            あなたが毎日を大切に過ごすために
+            <br />
+            意識づけするためのアプリです
+          </p>
+        </div>
 
         {!isEditing && settings && daysLeft !== null ? (
           <MainDisplay
@@ -1011,7 +1031,7 @@ export default function Home() {
             </div>
           </div>
         )}
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }
