@@ -1,35 +1,24 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
+import { PWAInstaller } from '~/lib/sw-register';
 
 export function InstallPwaButton() {
-  const [deferredPrompt, setDeferredPrompt] =
-    useState<BeforeInstallPromptEvent | null>(null);
+  const [_canInstall, setCanInstall] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [installer, setInstaller] = useState<PWAInstaller | null>(null);
 
   const handleInstallClick = useCallback(async () => {
-    if (deferredPrompt) {
-      try {
-        await deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-
-        if (outcome === 'accepted') {
-          setIsInstalled(true);
-        }
-      } catch (_error) {
-        // エラー時は何もしない
+    if (installer?.canInstall) {
+      const success = await installer.showInstallPrompt();
+      if (success) {
+        setIsInstalled(true);
+        setCanInstall(false);
       }
-
-      setDeferredPrompt(null);
     } else {
       alert('ブラウザのメニューから「ホーム画面に追加」を選択してください');
     }
-  }, [deferredPrompt]);
+  }, [installer]);
 
   useEffect(() => {
     // PWAがすでにインストールされているかチェック
@@ -50,24 +39,26 @@ export function InstallPwaButton() {
 
     checkIfInstalled();
 
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
+    // PWAInstallerインスタンスを作成
+    const pwaInstaller = new PWAInstaller();
+    setInstaller(pwaInstaller);
+
+    // PWAインストール可能状態の監視
+    const handlePWAInstallable = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      setCanInstall(customEvent.detail.canInstall);
     };
 
     const handleAppInstalled = () => {
       setIsInstalled(true);
-      setDeferredPrompt(null);
+      setCanInstall(false);
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('pwa-installable', handlePWAInstallable);
     window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
-      window.removeEventListener(
-        'beforeinstallprompt',
-        handleBeforeInstallPrompt
-      );
+      window.removeEventListener('pwa-installable', handlePWAInstallable);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);

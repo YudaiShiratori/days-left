@@ -620,6 +620,99 @@ bun run check:write # 問題を自動修正
 
 コミット前にBiomeによる自動フォーマットが実行されます。特別な操作は不要です。設定は `lefthook.yml` で変更できます。
 
+### PWA（Progressive Web App）対応
+
+このアプリケーションはPWA対応しており、Workboxを使用した最適化されたキャッシュ戦略を実装しています。
+
+#### キャッシュ戦略
+
+- **HTML**: Network First - オンライン時は常に最新版、オフライン時のみキャッシュ
+- **静的アセット（CSS/JS/フォント/画像）**: Stale-While-Revalidate - キャッシュから即座に表示、バックグラウンドで更新
+- **API**: Network First - レスポンス性を重視しつつ信頼性を確保
+- **Service Worker**: 自動更新 - 新バージョン検出時に自動リロード
+
+#### 開発環境での動作
+
+開発環境（`NODE_ENV=development`）では、Service Workerは自動的に無効化されます：
+
+```bash
+# 開発サーバー起動（Service Worker無効）
+bun run dev
+
+# 本番ビルド（Service Worker有効）
+bun run build && bun run start
+```
+
+#### PWAインストール
+
+ユーザーがPWAをインストール可能な場合、アプリ内に「ホーム画面に追加」ボタンが表示されます。
+
+#### キャッシュクリア手順
+
+**問題が発生した場合のキャッシュクリア方法：**
+
+1. **ブラウザでのキャッシュクリア**
+   ```
+   Chrome: 
+   1. 開発者ツール（F12）を開く
+   2. 「Application」タブ → 「Storage」
+   3. 「Clear storage」をクリック
+   
+   Safari:
+   1. 「開発」メニュー → 「Webインスペクタ」
+   2. 「Storage」タブでキャッシュを削除
+   
+   Firefox:
+   1. 開発者ツール（F12）→ 「Storage」タブ
+   2. 各ストレージ項目を削除
+   ```
+
+2. **Service Worker手動削除**
+   ```
+   Chrome:
+   1. 開発者ツール → 「Application」タブ
+   2. 「Service Workers」セクション
+   3. 「Unregister」をクリック
+   ```
+
+3. **PWA再インストール**
+   ```
+   1. ホーム画面からアプリを削除
+   2. ブラウザでサイトに再アクセス
+   3. 新しいインストールプロンプトを承認
+   ```
+
+4. **プログラムでのキャッシュクリア（開発用）**
+   ```typescript
+   import { clearServiceWorkerCache, unregisterServiceWorker } from '~/lib/sw-register';
+   
+   // 全キャッシュを削除
+   await clearServiceWorkerCache();
+   
+   // Service Worker登録解除
+   await unregisterServiceWorker();
+   ```
+
+#### トラブルシューティング
+
+**症状**: 新しいCSS/JSが反映されない
+**解決策**: 
+1. ハードリロード（Ctrl+Shift+R / Cmd+Shift+R）
+2. 上記のキャッシュクリア手順を実行
+3. ブラウザを完全に再起動
+
+**症状**: PWAインストールボタンが表示されない
+**原因**: 
+- HTTPSでないアクセス（localhostは除く）
+- 既にインストール済み
+- ブラウザがPWAをサポートしていない
+
+**症状**: Service Workerエラー
+**解決策**: 
+1. ブラウザのコンソールでエラー詳細を確認
+2. Service Worker登録を手動で解除
+3. アプリケーションキャッシュをクリア
+
 ## Vercelへのデプロイ設定
 
 Vercelへのデプロイは本来Vercel側でVercelアプリをGithubにインストールすることによって簡単に実現できますが、チーム開発を行う場合は、仮に全員がチームで課金されていない場合、課金されていないメンバーのPush時のデプロイは失敗してしまいます。

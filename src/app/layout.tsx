@@ -3,7 +3,7 @@ import '~/styles/globals.css';
 import type { Metadata } from 'next';
 import { Noto_Sans_JP } from 'next/font/google';
 import Image from 'next/image';
-
+import { ServiceWorkerProvider } from '~/components/service-worker-provider';
 import { TRPCReactProvider } from '~/trpc/react';
 
 export const metadata: Metadata = {
@@ -67,11 +67,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html className={`${notoSansJP.variable}`} lang="ja">
-      <head>
-        <script src="/sw-register.js" />
-      </head>
       <body>
         <TRPCReactProvider>
+          <ServiceWorkerProvider />
           <div className="min-h-screen bg-slate-100">
             <header className="sticky top-0 z-10 bg-white shadow-sm">
               <div className="mx-auto max-w-4xl px-4">

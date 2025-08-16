@@ -30,5 +30,13 @@
         }
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["public/sw.js"],
+      "linter": {
+        "enabled": false
+      }
+    }
+  ]
 }
