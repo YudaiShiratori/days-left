@@ -1,627 +1,792 @@
 'use client';
 
-import { Settings } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { InstallPwaButton } from '~/components/install-pwa-button';
 
-interface UserSettings {
-  birthDate: string;
-  lifeExpectancy: number;
+interface TargetDate {
+  id: string;
+  year: number;
+  month: number;
+  day: number;
+  label: string;
 }
 
-function DaysLeftCard() {
-  const [settings, setSettings] = useState<UserSettings | null>(null);
-  const [daysLeft, setDaysLeft] = useState<number | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+interface UserSettings {
+  birthYear: number;
+  birthMonth: number;
+  birthDay: number;
+  gender: 'male' | 'female';
+  targets: TargetDate[];
+}
 
-  const calculateDaysLeft = useCallback((userSettings: UserSettings) => {
-    const birthDate = new Date(userSettings.birthDate);
-    const today = new Date();
-    const expectedDeathDate = new Date(birthDate);
-    expectedDeathDate.setFullYear(
-      birthDate.getFullYear() + userSettings.lifeExpectancy
-    );
+// 設定データの変換処理
+function convertLegacySettings(parsed: unknown): UserSettings | null {
+  if (typeof parsed !== 'object' || parsed === null) {
+    return null;
+  }
+  
+  const parsedObj = parsed as Record<string, unknown>;
+  // 旧形式のデータを新形式に変換
+  if (parsedObj.birthDate && !parsedObj.birthYear) {
+    const birthDate = new Date(parsedObj.birthDate as string);
+    const convertedSettings: UserSettings = {
+      birthYear: birthDate.getFullYear(),
+      birthMonth: birthDate.getMonth() + 1,
+      birthDay: birthDate.getDate(),
+      gender: 'male', // デフォルト値
+      targets: parsedObj.targetDate
+        ? [
+            {
+              id: 'legacy',
+              year: (parsedObj.targetDate as any).year,
+              month: (parsedObj.targetDate as any).month,
+              day: (parsedObj.targetDate as any).day,
+              label: (parsedObj.targetDate as any).label,
+            },
+          ]
+        : [],
+    };
+    return convertedSettings;
+  }
 
-    const timeDiff = expectedDeathDate.getTime() - today.getTime();
-    const days = Math.ceil(timeDiff / (1000 * 3600 * 24));
-    setDaysLeft(Math.max(0, days));
-  }, []);
-
-  useEffect(() => {
-    const loadSettings = () => {
-      setIsLoading(true);
-      const savedSettings = localStorage.getItem('daysLeftSettings');
-      if (savedSettings) {
-        const parsed = JSON.parse(savedSettings) as UserSettings;
-        setSettings(parsed);
-        calculateDaysLeft(parsed);
-      }
-      setIsLoading(false);
+  if (parsedObj.birthYear) {
+    // 新旧混在データの処理
+    const newSettings: UserSettings = {
+      birthYear: parsedObj.birthYear as number,
+      birthMonth: parsedObj.birthMonth as number,
+      birthDay: parsedObj.birthDay as number,
+      gender: (parsedObj.gender as 'male' | 'female') || 'male', // 性別がない場合はデフォルト値
+      targets: [],
     };
 
-    loadSettings();
-  }, [calculateDaysLeft]);
+    // 旧形式の単一targetDateがある場合
+    if (parsed.targetDate && !parsed.targets) {
+      newSettings.targets = [
+        {
+          id: 'legacy',
+          year: parsed.targetDate.year,
+          month: parsed.targetDate.month,
+          day: parsed.targetDate.day,
+          label: parsed.targetDate.label,
+        },
+      ];
+    } else if (parsed.targets) {
+      // 新形式のtargetsがある場合
+      newSettings.targets = parsed.targets;
+    }
+
+    return newSettings;
+  }
+  
+  return null;
+}
+
+// アプリの状態管理用のカスタムフック
+function useAppState() {
+  const [settings, setSettings] = useState<UserSettings | null>(null);
+  const [daysLeft, setDaysLeft] = useState<number | null>(null);
+  const [targetDaysLeft, setTargetDaysLeft] = useState<Record<string, number>>(
+    {}
+  );
+  const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'life' | string>('life');
+
+  // 一時的な編集値
+  const [tempYear, setTempYear] = useState('');
+  const [tempMonth, setTempMonth] = useState('');
+  const [tempDay, setTempDay] = useState('');
+  const [tempGender, setTempGender] = useState<'male' | 'female'>('male');
+
+  // 目標日の一時的な編集値
+  const [tempTargets, setTempTargets] = useState<
+    Array<{
+      id: string;
+      year: string;
+      month: string;
+      day: string;
+      label: string;
+    }>
+  >([]);
+
+  return {
+    settings, setSettings,
+    daysLeft, setDaysLeft,
+    targetDaysLeft, setTargetDaysLeft,
+    isEditing, setIsEditing,
+    isLoading, setIsLoading,
+    activeTab, setActiveTab,
+    tempYear, setTempYear,
+    tempMonth, setTempMonth,
+    tempDay, setTempDay,
+    tempGender, setTempGender,
+    tempTargets, setTempTargets
+  };
+}
+
+export default function Home() {
+  const {
+    settings, setSettings,
+    daysLeft, setDaysLeft,
+    targetDaysLeft, setTargetDaysLeft,
+    isEditing, setIsEditing,
+    isLoading, setIsLoading,
+    activeTab, setActiveTab,
+    tempYear, setTempYear,
+    tempMonth, setTempMonth,
+    tempDay, setTempDay,
+    tempGender, setTempGender,
+    tempTargets, setTempTargets
+  } = useAppState();
+
+  // 日本人の平均寿命を計算（厚生労働省2023年データ）
+  const calculateLifeExpectancy = useCallback(
+    (birthYear: number, gender: 'male' | 'female') => {
+      // 2024年の日本の平均寿命（厚生労働省最新データ）
+      // 男性: 81.09歳、女性: 87.13歳
+      const baseMaleLifeExpectancy = 81.09;
+      const baseFemaleLifeExpectancy = 87.13;
+
+      // 出生年による調整（医療技術の向上により年々延びている傾向）
+      const baseYear = 2024;
+      const yearDifference = baseYear - birthYear;
+
+      // 1年につき約0.2歳ずつ短くなる（過去）または長くなる（未来）傾向
+      const yearAdjustment = -yearDifference * 0.2;
+
+      const baseExpectancy =
+        gender === 'male' ? baseMaleLifeExpectancy : baseFemaleLifeExpectancy;
+      const adjustedExpectancy = baseExpectancy + yearAdjustment;
+
+      // 現実的な範囲に制限（65〜95歳）
+      return Math.max(
+        65,
+        Math.min(95, Math.round(adjustedExpectancy * 10) / 10)
+      );
+    },
+    []
+  );
+
+  const calculateDaysLeft = useCallback(
+    (userSettings: UserSettings) => {
+      const birthDate = new Date(
+        userSettings.birthYear,
+        userSettings.birthMonth - 1,
+        userSettings.birthDay
+      );
+      const today = new Date();
+      const lifeExpectancy = calculateLifeExpectancy(
+        userSettings.birthYear,
+        userSettings.gender
+      );
+      const expectedDeathDate = new Date(birthDate);
+      expectedDeathDate.setFullYear(
+        birthDate.getFullYear() + Math.floor(lifeExpectancy)
+      );
+
+      // 小数点以下の日数を追加
+      const fractionalDays =
+        (lifeExpectancy - Math.floor(lifeExpectancy)) * 365;
+      expectedDeathDate.setDate(
+        expectedDeathDate.getDate() + Math.floor(fractionalDays)
+      );
+
+      const timeDiff = expectedDeathDate.getTime() - today.getTime();
+      const days = Math.ceil(timeDiff / (1000 * 3600 * 24));
+      return Math.max(0, days);
+    },
+    [calculateLifeExpectancy]
+  );
+
+  const calculateTargetDaysLeft = useCallback((targetDate: TargetDate) => {
+    const target = new Date(
+      targetDate.year,
+      targetDate.month - 1,
+      targetDate.day
+    );
+    const today = new Date();
+    const timeDiff = target.getTime() - today.getTime();
+    const days = Math.ceil(timeDiff / (1000 * 3600 * 24));
+    return days;
+  }, []);
+
+  // 初期化と設定の読み込み
+  useEffect(() => {
+    setIsLoading(true);
+    const savedSettings = localStorage.getItem('daysLeftSettings');
+    
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        const convertedSettings = convertLegacySettings(parsed);
+        
+        if (convertedSettings) {
+          localStorage.setItem('daysLeftSettings', JSON.stringify(convertedSettings));
+          setSettings(convertedSettings);
+        } else {
+          localStorage.removeItem('daysLeftSettings');
+          setIsEditing(true);
+        }
+      } catch (_e) {
+        localStorage.removeItem('daysLeftSettings');
+        setIsEditing(true);
+      }
+    } else {
+      setIsEditing(true);
+    }
+    
+    setIsLoading(false);
+  }, []);
+
+  // 設定が更新された時の処理
+  useEffect(() => {
+    if (!settings) {
+      return;
+    }
+
+    const days = calculateDaysLeft(settings);
+    setDaysLeft(days);
+
+    // 全ての目標日の日数を計算
+    const targetDays: Record<string, number> = {};
+    for (const target of settings.targets) {
+      targetDays[target.id] = calculateTargetDaysLeft(target);
+    }
+    setTargetDaysLeft(targetDays);
+
+    // アクティブタブの初期設定は削除（ユーザーが手動で選択）
+  }, [settings, calculateDaysLeft, calculateTargetDaysLeft]);
+
+  // 1秒ごとに更新
+  useEffect(() => {
+    if (!settings) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const days = calculateDaysLeft(settings);
+      setDaysLeft(days);
+
+      const targetDays: Record<string, number> = {};
+      for (const target of settings.targets) {
+        targetDays[target.id] = calculateTargetDaysLeft(target);
+      }
+      setTargetDaysLeft(targetDays);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [settings, calculateDaysLeft, calculateTargetDaysLeft]);
+
+  const handleEdit = () => {
+    if (settings) {
+      setTempYear(settings.birthYear.toString());
+      setTempMonth(settings.birthMonth.toString());
+      setTempDay(settings.birthDay.toString());
+      setTempGender(settings.gender);
+
+      setTempTargets(
+        settings.targets.map((target) => ({
+          id: target.id,
+          year: target.year.toString(),
+          month: target.month.toString(),
+          day: target.day.toString(),
+          label: target.label,
+        }))
+      );
+    } else {
+      // デフォルト値を設定
+      const today = new Date();
+      setTempYear((today.getFullYear() - 30).toString());
+      setTempMonth('1');
+      setTempDay('1');
+      setTempGender('male');
+      setTempTargets([]);
+    }
+    setIsEditing(true);
+  };
+
+  const addNewTarget = () => {
+    const newId = `target-${Date.now()}`;
+    setTempTargets([
+      ...tempTargets,
+      {
+        id: newId,
+        year: '',
+        month: '',
+        day: '',
+        label: '',
+      },
+    ]);
+  };
+
+  const removeTarget = (id: string) => {
+    setTempTargets(tempTargets.filter((target) => target.id !== id));
+  };
+
+  const updateTarget = (id: string, field: string, value: string) => {
+    setTempTargets(
+      tempTargets.map((target) =>
+        target.id === id ? { ...target, [field]: value } : target
+      )
+    );
+  };
+
+  const handleSave = () => {
+    const year = Number.parseInt(tempYear, 10);
+    const month = Number.parseInt(tempMonth, 10);
+    const day = Number.parseInt(tempDay, 10);
+
+    if (
+      year &&
+      month &&
+      day &&
+      year > 1900 &&
+      year < 2100 &&
+      month >= 1 &&
+      month <= 12 &&
+      day >= 1 &&
+      day <= 31
+    ) {
+      // 有効な目標日のみをフィルタリング
+      const validTargets: TargetDate[] = tempTargets
+        .filter(
+          (target) =>
+            target.year && target.month && target.day && target.label.trim()
+        )
+        .map((target) => ({
+          id: target.id,
+          year: Number.parseInt(target.year, 10),
+          month: Number.parseInt(target.month, 10),
+          day: Number.parseInt(target.day, 10),
+          label: target.label.trim(),
+        }));
+
+      const newSettings: UserSettings = {
+        birthYear: year,
+        birthMonth: month,
+        birthDay: day,
+        gender: tempGender,
+        targets: validTargets,
+      };
+
+      localStorage.setItem('daysLeftSettings', JSON.stringify(newSettings));
+      setSettings(newSettings);
+      setIsEditing(false);
+    }
+  };
+
+  const handleCancel = () => {
+    if (settings) {
+      setIsEditing(false);
+    }
+  };
+
+  const handleReset = () => {
+    localStorage.removeItem('daysLeftSettings');
+    setSettings(null);
+    setDaysLeft(null);
+    setTargetDaysLeft({});
+    setTempYear('');
+    setTempMonth('');
+    setTempDay('');
+    setTempGender('male');
+    setTempTargets([]);
+    setActiveTab('life');
+    setIsEditing(true);
+  };
+
+  // 年のオプション生成
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 120 }, (_, i) => currentYear - i);
+  const futureYears = Array.from({ length: 30 }, (_, i) => currentYear + i);
+  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  const days = Array.from({ length: 31 }, (_, i) => i + 1);
+
+  // 表示する日数
+  const currentTarget =
+    activeTab !== 'life' && settings
+      ? settings.targets.find((t) => t.id === activeTab)
+      : null;
+  const displayDays =
+    activeTab === 'life' ? daysLeft : targetDaysLeft[activeTab];
+
+  // 進捗率の計算
+  const progressPercentage =
+    settings && daysLeft !== null
+      ? Math.max(
+          0,
+          Math.min(
+            100,
+            ((calculateLifeExpectancy(settings.birthYear, settings.gender) *
+              365 -
+              daysLeft) /
+              (calculateLifeExpectancy(settings.birthYear, settings.gender) *
+                365)) *
+              100
+          )
+        )
+      : 0;
 
   if (isLoading) {
     return (
-      <div className="relative overflow-hidden rounded-3xl border border-slate-700/50 bg-gradient-to-br from-slate-800/50 to-slate-900/50 p-8 backdrop-blur-sm md:p-12">
-        <div className="space-y-6 text-center">
-          <div className="mx-auto h-16 w-16 animate-pulse rounded-full bg-cyan-500/10" />
-          <div className="h-8 animate-pulse rounded-lg bg-slate-700/50" />
-          <div className="mx-auto h-4 max-w-xs animate-pulse rounded bg-slate-700/30" />
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-gray-50 to-white">
+        <div className="text-center">
+          <div className="mx-auto h-16 w-16 animate-spin rounded-full border-4 border-gray-200 border-t-gray-600" />
+          <p className="mt-4 text-gray-600">読み込み中...</p>
         </div>
-      </div>
-    );
-  }
-
-  if (!settings) {
-    return (
-      <div className="relative overflow-hidden rounded-3xl border border-slate-700/50 bg-gradient-to-br from-slate-800/50 to-slate-900/50 p-8 text-center backdrop-blur-sm md:p-12">
-        <div className="absolute top-0 right-0 h-32 w-32 rounded-full bg-cyan-500/5 blur-3xl" />
-        <div className="absolute bottom-0 left-0 h-24 w-24 rounded-full bg-blue-500/5 blur-2xl" />
-
-        <div className="relative z-10 space-y-6">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20">
-            <span className="text-4xl">⏳</span>
-          </div>
-
-          <div className="space-y-4">
-            <h2 className="font-bold text-2xl text-white md:text-3xl">
-              まず設定から始めましょう
-            </h2>
-            <p className="text-lg text-slate-300">
-              生年月日と予想寿命を入力して
-              <br />
-              あなたの人生時計をスタートします
-            </p>
-            <div className="mt-6 rounded-xl border border-green-500/20 bg-green-500/10 p-4">
-              <p className="text-green-300 text-sm">
-                💡
-                このアプリをホーム画面に追加すると、いつでも簡単にアクセスできます
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-slate-700/50 bg-gradient-to-br from-slate-800/50 to-slate-900/50 p-8 backdrop-blur-sm md:p-12">
-      <div className="absolute top-0 right-0 h-40 w-40 rounded-full bg-gradient-to-br from-cyan-400/10 to-blue-400/10 blur-3xl" />
-      <div className="absolute bottom-0 left-0 h-32 w-32 rounded-full bg-gradient-to-tr from-blue-400/5 to-cyan-400/5 blur-2xl" />
+    <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      <div className="mx-auto max-w-4xl px-4 py-8 md:py-12">
+        {/* ヘッダー */}
+        <header className="mb-8 text-center">
+          <h1 className="mb-2 font-bold text-3xl text-gray-900 md:text-4xl">
+            人生の残り時間
+          </h1>
+          <p className="text-gray-600">一日一日を大切に</p>
+        </header>
 
-      <div className="relative z-10 space-y-8 text-center">
-        <div className="space-y-4">
-          <div className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1">
-            <span className="font-medium text-cyan-300 text-sm">残り時間</span>
-          </div>
-
-          <div className="space-y-2">
-            <output
-              aria-label={`人生の残り時間は${daysLeft?.toLocaleString() || '---'}日です`}
-              className="bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-300 bg-clip-text font-black text-6xl text-transparent tabular-nums tracking-tight drop-shadow-sm md:text-8xl lg:text-9xl"
-            >
-              {daysLeft?.toLocaleString() || '---'}
-            </output>
-            <p className="font-light text-3xl text-slate-300 md:text-4xl">
-              日間
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-4 border-slate-700/50 border-t pt-6">
-          <p className="text-lg text-slate-400">
-            {settings.lifeExpectancy}歳まで生きると想定
-          </p>
-          <div className="flex justify-center">
-            <div className="inline-flex items-center space-x-2 rounded-full bg-slate-700/30 px-4 py-2">
-              <div className="h-2 w-2 animate-pulse rounded-full bg-green-400" />
-              <span className="text-slate-300 text-sm">リアルタイム更新中</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LifeProgressCard() {
-  const [settings, setSettings] = useState<UserSettings | null>(null);
-  const [currentAge, setCurrentAge] = useState<number | null>(null);
-  const [percentage, setPercentage] = useState(0);
-
-  useEffect(() => {
-    const savedSettings = localStorage.getItem('daysLeftSettings');
-    if (savedSettings) {
-      const parsed = JSON.parse(savedSettings) as UserSettings;
-      setSettings(parsed);
-
-      const birthDate = new Date(parsed.birthDate);
-      const today = new Date();
-      const age = today.getFullYear() - birthDate.getFullYear();
-      const monthDiff = today.getMonth() - birthDate.getMonth();
-      const calculatedAge =
-        monthDiff < 0 ||
-        (monthDiff === 0 && today.getDate() < birthDate.getDate())
-          ? age - 1
-          : age;
-
-      setCurrentAge(calculatedAge);
-      const calc = Math.max(
-        0,
-        Math.min(100, (calculatedAge / parsed.lifeExpectancy) * 100)
-      );
-      setPercentage(calc);
-    }
-  }, []);
-
-  if (!settings || currentAge === null) {
-    return (
-      <div className="relative overflow-hidden rounded-2xl border border-slate-700/30 bg-gradient-to-br from-slate-800/30 to-slate-900/30 p-6 backdrop-blur-sm">
-        <div className="space-y-4">
-          <div className="h-6 animate-pulse rounded bg-slate-700/50" />
-          <div className="h-4 animate-pulse rounded bg-slate-700/30" />
-          <div className="h-2 animate-pulse rounded bg-slate-700/20" />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-slate-700/30 bg-gradient-to-br from-slate-800/30 to-slate-900/30 p-6 backdrop-blur-sm transition-all duration-300 hover:border-slate-600/50">
-      <div className="absolute top-0 right-0 h-24 w-24 rounded-full bg-orange-400/5 blur-2xl" />
-
-      <div className="relative z-10 space-y-6">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-lg text-white">人生の歩み</h3>
-          <div className="text-2xl">🚶‍♂️</div>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-baseline justify-between">
-            <span className="text-slate-400">現在の年齢</span>
-            <span className="font-bold text-2xl text-white">
-              {currentAge}歳
-            </span>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <div className="flex justify-between text-sm">
-            <span className="text-slate-400">0歳</span>
-            <span className="text-slate-400">{settings.lifeExpectancy}歳</span>
-          </div>
-
-          <div className="relative h-3 overflow-hidden rounded-full bg-slate-700/50">
-            <div
-              className="absolute top-0 left-0 h-full rounded-full bg-gradient-to-r from-green-400 via-yellow-400 to-orange-500 transition-all duration-1000 ease-out"
-              style={{ width: `${percentage}%` }}
-            />
-            <div
-              className="absolute top-0 left-0 h-full w-2 rounded-full bg-white/50 blur-sm"
-              style={{ left: `${Math.max(0, percentage - 1)}%` }}
-            />
-          </div>
-
-          <div className="text-center">
-            <span className="font-semibold text-slate-300 text-xl">
-              {percentage.toFixed(1)}%
-            </span>
-            <span className="block text-slate-400 text-sm">
-              の人生を歩みました
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MotivationCard() {
-  const [message, setMessage] = useState<string>('');
-  const [timeBasedGreeting, setTimeBasedGreeting] = useState<string>('');
-  const [emoji, setEmoji] = useState<string>('✨');
-
-  // 時間帯別のグリーティング設定
-  useEffect(() => {
-    const hour = new Date().getHours();
-
-    if (hour < 6) {
-      setTimeBasedGreeting('深夜の静寂な時間');
-      setEmoji('🌙');
-    } else if (hour < 12) {
-      setTimeBasedGreeting('新しい朝の始まり');
-      setEmoji('🌅');
-    } else if (hour < 18) {
-      setTimeBasedGreeting('充実した午後');
-      setEmoji('☀️');
-    } else {
-      setTimeBasedGreeting('一日の終わりに');
-      setEmoji('🌆');
-    }
-  }, []);
-
-  // メッセージの設定
-  useEffect(() => {
-    const savedSettings = localStorage.getItem('daysLeftSettings');
-    if (savedSettings) {
-      const settings = JSON.parse(savedSettings);
-      const birthDate = new Date(settings.birthDate);
-      const today = new Date();
-      const age = today.getFullYear() - birthDate.getFullYear();
-      const percentage = (age / settings.lifeExpectancy) * 100;
-
-      if (percentage < 25) {
-        setMessage(
-          'まだ見ぬ可能性が無限に広がっています。今日という日を大切に過ごしましょう。'
-        );
-      } else if (percentage < 50) {
-        setMessage(
-          '経験を重ね、より深い人生を歩んでいます。今の瞬間を味わいましょう。'
-        );
-      } else if (percentage < 75) {
-        setMessage(
-          '豊かな経験と知恵を持つあなた。その価値ある時間を大切にしましょう。'
-        );
-      } else {
-        setMessage(
-          '人生の集大成の時。一日一日を丁寧に、心を込めて過ごしましょう。'
-        );
-      }
-    } else {
-      const inspirationalMessages = [
-        '今日という日は、残りの人生の最初の日です。',
-        '時間は誰にでも平等に与えられた、最も貴重な贈り物です。',
-        '過去は歴史、未来は謎、今日は贈り物。だから「Present」と呼ばれます。',
-        '限りあるからこそ、人生は美しく意味深いものになります。',
-        'この瞬間を大切に。すべての始まりは「今」からです。',
-      ];
-      const randomIndex = Math.floor(
-        Math.random() * inspirationalMessages.length
-      );
-      const randomMessage = inspirationalMessages[randomIndex];
-      if (randomMessage) {
-        setMessage(randomMessage);
-      }
-    }
-  }, []);
-
-  return (
-    <div className="group relative overflow-hidden rounded-2xl border border-slate-700/30 bg-gradient-to-br from-slate-800/30 to-slate-900/30 p-6 backdrop-blur-sm transition-all duration-300 hover:border-slate-600/50">
-      <div className="absolute top-0 left-0 h-32 w-32 rounded-full bg-cyan-400/5 blur-3xl transition-all duration-500 group-hover:bg-cyan-400/10" />
-
-      <div className="relative z-10 space-y-6">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-lg text-white">今日への想い</h3>
-          <div className="text-2xl">{emoji}</div>
-        </div>
-
-        <div className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1">
-          <span className="font-medium text-cyan-300 text-sm">
-            {timeBasedGreeting}
-          </span>
-        </div>
-
-        <div className="space-y-4">
-          <p className="text-slate-200 leading-relaxed">{message}</p>
-        </div>
-
-        <div className="border-slate-700/50 border-t pt-4">
-          <div className="flex items-center justify-center space-x-2">
-            <div className="flex space-x-1">
-              <div
-                className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-400"
-                style={{ animationDelay: '0s', animationDuration: '2s' }}
-              />
-              <div
-                className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-400"
-                style={{ animationDelay: '0.3s', animationDuration: '2s' }}
-              />
-              <div
-                className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-400"
-                style={{ animationDelay: '0.6s', animationDuration: '2s' }}
-              />
-            </div>
-            <span className="font-medium text-cyan-300 text-sm">
-              今を大切に
-            </span>
-            <div className="flex space-x-1">
-              <div
-                className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-400"
-                style={{ animationDelay: '0.9s', animationDuration: '2s' }}
-              />
-              <div
-                className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-400"
-                style={{ animationDelay: '1.2s', animationDuration: '2s' }}
-              />
-              <div
-                className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-400"
-                style={{ animationDelay: '1.5s', animationDuration: '2s' }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SettingsButton() {
-  const [showModal, setShowModal] = useState(false);
-  const [birthDate, setBirthDate] = useState('');
-  const [lifeExpectancy, setLifeExpectancy] = useState(80);
-
-  useEffect(() => {
-    const savedSettings = localStorage.getItem('daysLeftSettings');
-    if (savedSettings) {
-      const parsed = JSON.parse(savedSettings) as UserSettings;
-      setBirthDate(parsed.birthDate);
-      setLifeExpectancy(parsed.lifeExpectancy);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (showModal) {
-      document.body.style.overflow = 'hidden';
-      setTimeout(() => {
-        const firstInput = document.getElementById('birthDate');
-        firstInput?.focus();
-      }, 100);
-    } else {
-      document.body.style.overflow = '';
-    }
-
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [showModal]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && showModal) {
-        setShowModal(false);
-      }
-    };
-
-    if (showModal) {
-      document.addEventListener('keydown', handleKeyDown);
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [showModal]);
-
-  const handleSave = () => {
-    if (birthDate) {
-      const settings: UserSettings = { birthDate, lifeExpectancy };
-      localStorage.setItem('daysLeftSettings', JSON.stringify(settings));
-      setShowModal(false);
-      window.location.reload();
-    }
-  };
-
-  const handleBackdropClick = (e: React.MouseEvent | React.KeyboardEvent) => {
-    if (e.target === e.currentTarget) {
-      setShowModal(false);
-    }
-  };
-
-  const handleBackdropKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      handleBackdropClick(e);
-    }
-  };
-
-  return (
-    <>
-      <button
-        aria-label="設定を開く"
-        className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 px-8 py-4 font-semibold text-lg text-white transition-all duration-300 hover:scale-105 hover:shadow-cyan-500/25 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-cyan-400/50 active:scale-95"
-        onClick={() => setShowModal(true)}
-        type="button"
-      >
-        <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 to-blue-400 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-
-        <div className="relative flex items-center gap-3">
-          <Settings
-            aria-hidden="true"
-            className="transition-transform duration-300 group-hover:rotate-90"
-            size={22}
-          />
-          <span>設定する</span>
-          <div className="h-2 w-2 animate-pulse rounded-full bg-white/60" />
-        </div>
-      </button>
-
-      {showModal && (
-        <button
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-          onClick={handleBackdropClick}
-          onKeyDown={handleBackdropKeyDown}
-          type="button"
-        >
-          <div
-            aria-labelledby="settings-title"
-            aria-modal="true"
-            className="relative w-full max-w-md animate-fade-in rounded-3xl border border-slate-600/50 bg-gradient-to-br from-slate-800/90 to-slate-900/90 p-8 shadow-2xl backdrop-blur-xl"
-            role="dialog"
-          >
-            <div className="absolute top-0 right-0 h-32 w-32 rounded-full bg-cyan-400/10 blur-3xl" />
-            <div className="absolute bottom-0 left-0 h-24 w-24 rounded-full bg-blue-400/10 blur-2xl" />
-
-            <div className="relative z-10">
-              <div className="mb-8 text-center">
-                <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20">
-                  <Settings className="text-cyan-400" size={24} />
+        {/* メインコンテンツ */}
+        {!isEditing && settings && daysLeft !== null ? (
+          <div className="space-y-8">
+            {/* タブ切り替え */}
+            {settings.targets.length > 0 && (
+              <div className="mb-6 flex justify-center">
+                <div className="inline-flex flex-wrap gap-1 rounded-lg bg-gray-100 p-1">
+                  <button
+                    className={`rounded-md px-4 py-2 font-medium transition-colors ${
+                      activeTab === 'life'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                    onClick={() => {
+                      setActiveTab('life');
+                    }}
+                    type="button"
+                  >
+                    人生の残り
+                  </button>
+                  {settings.targets.map((target) => (
+                    <button
+                      className={`rounded-md px-4 py-2 font-medium transition-colors ${
+                        activeTab === target.id
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                      key={target.id}
+                      onClick={() => setActiveTab(target.id)}
+                      type="button"
+                    >
+                      {target.label}
+                    </button>
+                  ))}
                 </div>
-                <h2
-                  className="font-bold text-2xl text-white"
-                  id="settings-title"
-                >
-                  人生時計の設定
-                </h2>
-                <p className="mt-2 text-slate-400 text-sm">
-                  あなたの時間を正確に計測するための設定
+              </div>
+            )}
+
+            {/* メインカード */}
+            <div className="rounded-2xl bg-white p-8 shadow-lg md:p-12">
+              {/* 残り日数表示 */}
+              <div className="mb-8 text-center">
+                <div className="mb-2">
+                  <span className="text-gray-500 text-sm">
+                    {activeTab !== 'life' &&
+                    displayDays !== null &&
+                    displayDays !== undefined &&
+                    displayDays < 0
+                      ? '経過'
+                      : 'あと'}
+                  </span>
+                </div>
+                <div className="font-bold text-6xl text-gray-900 tabular-nums md:text-7xl lg:text-8xl">
+                  {displayDays !== null && displayDays !== undefined
+                    ? Math.abs(displayDays).toLocaleString()
+                    : '---'}
+                </div>
+                <div className="mt-2 text-2xl text-gray-700 md:text-3xl">
+                  日
+                </div>
+              </div>
+
+              {/* プログレスバー（人生タブの時のみ） */}
+              {activeTab === 'life' && (
+                <div className="mb-6">
+                  <div className="mb-2 flex justify-between text-gray-600 text-sm">
+                    <span>0歳</span>
+                    <span className="font-medium">
+                      {progressPercentage.toFixed(1)}% 経過
+                    </span>
+                    <span>
+                      {calculateLifeExpectancy(
+                        settings.birthYear,
+                        settings.gender
+                      ).toFixed(0)}
+                      歳
+                    </span>
+                  </div>
+                  <div className="h-3 overflow-hidden rounded-full bg-gray-200">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-1000"
+                      style={{ width: `${progressPercentage}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 設定情報 */}
+              <div className="text-center text-gray-600 text-sm">
+                {activeTab === 'life'
+                  ? `${settings.birthYear}年${settings.birthMonth}月${settings.birthDay}日生まれ・${settings.gender === 'male' ? '男性' : '女性'}・平均寿命${calculateLifeExpectancy(settings.birthYear, settings.gender).toFixed(1)}歳`
+                  : currentTarget &&
+                    `${currentTarget.year}年${currentTarget.month}月${currentTarget.day}日 - ${currentTarget.label}`}
+              </div>
+            </div>
+
+            {/* アクションボタン */}
+            <div className="flex flex-col justify-center gap-3 sm:flex-row">
+              <button
+                className="rounded-lg bg-gray-900 px-6 py-3 font-medium text-white transition-colors hover:bg-gray-800"
+                onClick={handleEdit}
+                type="button"
+              >
+                設定を変更
+              </button>
+              <button
+                className="rounded-lg border border-gray-300 bg-white px-6 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                onClick={handleReset}
+                type="button"
+              >
+                リセット
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* 編集モード */
+          <div className="rounded-2xl bg-white p-8 shadow-lg md:p-12">
+            <h2 className="mb-8 text-center font-bold text-2xl text-gray-900">
+              あなたの情報を入力
+            </h2>
+
+            {/* 生年月日と性別入力 */}
+            <div className="mb-8 space-y-6">
+              <div>
+                <div className="mb-3 block font-medium text-gray-700 text-sm">
+                  生年月日
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <select
+                      className="w-full rounded-lg border-2 border-gray-300 px-3 py-3 text-center font-medium text-lg focus:border-blue-500 focus:outline-none"
+                      onChange={(e) => setTempYear(e.target.value)}
+                      value={tempYear}
+                    >
+                      <option value="">年</option>
+                      {years.map((year) => (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <select
+                      className="w-full rounded-lg border-2 border-gray-300 px-3 py-3 text-center font-medium text-lg focus:border-blue-500 focus:outline-none"
+                      onChange={(e) => setTempMonth(e.target.value)}
+                      value={tempMonth}
+                    >
+                      <option value="">月</option>
+                      {months.map((month) => (
+                        <option key={month} value={month}>
+                          {month}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <select
+                      className="w-full rounded-lg border-2 border-gray-300 px-3 py-3 text-center font-medium text-lg focus:border-blue-500 focus:outline-none"
+                      onChange={(e) => setTempDay(e.target.value)}
+                      value={tempDay}
+                    >
+                      <option value="">日</option>
+                      {days.map((day) => (
+                        <option key={day} value={day}>
+                          {day}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* 性別選択 */}
+              <div>
+                <div className="mb-3 block font-medium text-gray-700 text-sm">
+                  性別
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    className={`rounded-lg border-2 px-4 py-3 font-medium transition-colors ${
+                      tempGender === 'male'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                    onClick={() => setTempGender('male')}
+                    type="button"
+                  >
+                    男性
+                    <div className="mt-1 text-gray-500 text-xs">
+                      平均寿命: 81.09歳
+                    </div>
+                  </button>
+                  <button
+                    className={`rounded-lg border-2 px-4 py-3 font-medium transition-colors ${
+                      tempGender === 'female'
+                        ? 'border-pink-500 bg-pink-50 text-pink-700'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                    onClick={() => setTempGender('female')}
+                    type="button"
+                  >
+                    女性
+                    <div className="mt-1 text-gray-500 text-xs">
+                      平均寿命: 87.13歳
+                    </div>
+                  </button>
+                </div>
+                <p className="mt-2 text-gray-500 text-xs">
+                  ※ 厚生労働省2024年データに基づく
                 </p>
               </div>
 
-              <div className="space-y-8">
-                <div className="space-y-3">
-                  <label
-                    className="flex items-center gap-2 font-medium text-sm text-white"
-                    htmlFor="birthDate"
+              {/* 目標日設定 */}
+              <div>
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="font-medium text-gray-700 text-sm">
+                    目標日を設定（複数可）
+                  </div>
+                  <button
+                    className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-sm text-white transition-colors hover:bg-blue-700"
+                    onClick={addNewTarget}
+                    type="button"
                   >
-                    <span className="text-lg">📅</span>
-                    生年月日
-                  </label>
-                  <input
-                    aria-describedby="birthDate-help"
-                    className="w-full rounded-xl border border-slate-600/50 bg-slate-700/50 px-4 py-4 text-white placeholder-slate-400 backdrop-blur-sm transition-all duration-200 focus:border-cyan-400/50 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
-                    id="birthDate"
-                    onChange={(e) => setBirthDate(e.target.value)}
-                    type="date"
-                    value={birthDate}
-                  />
-                  <p
-                    className="text-slate-400 text-xs leading-relaxed"
-                    id="birthDate-help"
-                  >
-                    あなたの生まれた日を正確に入力してください
-                  </p>
+                    + 目標を追加
+                  </button>
                 </div>
 
                 <div className="space-y-4">
-                  <label
-                    className="flex items-center gap-2 font-medium text-sm text-white"
-                    htmlFor="lifeExpectancy"
-                  >
-                    <span className="text-lg">🎯</span>
-                    目標寿命: {lifeExpectancy}歳
-                  </label>
-
-                  <div className="relative">
-                    <input
-                      aria-describedby="lifeExpectancy-help"
-                      className="slider-modern h-3 w-full cursor-pointer appearance-none rounded-full bg-gradient-to-r from-slate-600 to-slate-700 focus:outline-none focus:ring-4 focus:ring-cyan-400/20"
-                      id="lifeExpectancy"
-                      max="120"
-                      min="60"
-                      onChange={(e) =>
-                        setLifeExpectancy(Number(e.target.value))
-                      }
-                      type="range"
-                      value={lifeExpectancy}
-                    />
-                    <div className="mt-2 flex justify-between text-slate-400 text-xs">
-                      <span className="flex items-center gap-1">
-                        <span className="h-1 w-1 rounded-full bg-green-400" />
-                        60歳
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="h-1 w-1 rounded-full bg-orange-400" />
-                        120歳
-                      </span>
+                  {tempTargets.map((target) => (
+                    <div
+                      className="space-y-3 rounded-lg bg-blue-50 p-4"
+                      key={target.id}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-gray-700 text-sm">
+                          目標 #{target.id.split('-')[1]}
+                        </span>
+                        <button
+                          className="text-red-600 text-sm hover:text-red-800"
+                          onClick={() => removeTarget(target.id)}
+                          type="button"
+                        >
+                          削除
+                        </button>
+                      </div>
+                      <input
+                        className="w-full rounded-lg border-2 border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+                        onChange={(e) =>
+                          updateTarget(target.id, 'label', e.target.value)
+                        }
+                        placeholder="目標の名前（例：定年退職、卒業、結婚記念日）"
+                        type="text"
+                        value={target.label}
+                      />
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <select
+                            className="w-full rounded-lg border-2 border-gray-300 px-3 py-3 text-center font-medium text-lg focus:border-blue-500 focus:outline-none"
+                            onChange={(e) =>
+                              updateTarget(target.id, 'year', e.target.value)
+                            }
+                            value={target.year}
+                          >
+                            <option value="">年</option>
+                            {futureYears.map((year) => (
+                              <option key={year} value={year}>
+                                {year}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <select
+                            className="w-full rounded-lg border-2 border-gray-300 px-3 py-3 text-center font-medium text-lg focus:border-blue-500 focus:outline-none"
+                            onChange={(e) =>
+                              updateTarget(target.id, 'month', e.target.value)
+                            }
+                            value={target.month}
+                          >
+                            <option value="">月</option>
+                            {months.map((month) => (
+                              <option key={month} value={month}>
+                                {month}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <select
+                            className="w-full rounded-lg border-2 border-gray-300 px-3 py-3 text-center font-medium text-lg focus:border-blue-500 focus:outline-none"
+                            onChange={(e) =>
+                              updateTarget(target.id, 'day', e.target.value)
+                            }
+                            value={target.day}
+                          >
+                            <option value="">日</option>
+                            {days.map((day) => (
+                              <option key={day} value={day}>
+                                {day}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ))}
 
-                  <div className="rounded-xl border border-cyan-400/10 bg-cyan-400/5 p-3 text-center">
-                    <span className="font-semibold text-cyan-300 text-lg">
-                      {lifeExpectancy}歳
-                    </span>
-                    <p className="mt-1 text-slate-400 text-xs">
-                      まで生きることを目標に
-                    </p>
-                  </div>
-
-                  <p
-                    className="text-slate-400 text-xs leading-relaxed"
-                    id="lifeExpectancy-help"
-                  >
-                    あなたが目指したい年齢を設定してください
-                  </p>
+                  {tempTargets.length === 0 && (
+                    <div className="py-8 text-center text-gray-500">
+                      「+ 目標を追加」ボタンで目標日を追加できます
+                    </div>
+                  )}
                 </div>
               </div>
+            </div>
 
-              <div className="mt-10 flex gap-4">
+            {/* ボタン */}
+            <div className="flex gap-3">
+              {settings && (
                 <button
-                  className="flex-1 rounded-xl border border-slate-600/50 bg-slate-700/30 px-6 py-4 font-medium text-slate-300 backdrop-blur-sm transition-all duration-200 hover:bg-slate-600/50 hover:text-white focus:outline-none focus:ring-2 focus:ring-slate-400/50"
-                  onClick={() => setShowModal(false)}
+                  className="flex-1 rounded-lg border border-gray-300 bg-white px-6 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                  onClick={handleCancel}
                   type="button"
                 >
                   キャンセル
                 </button>
-                <button
-                  aria-describedby={
-                    birthDate ? undefined : 'save-disabled-help'
-                  }
-                  className="group relative flex-1 overflow-hidden rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-6 py-4 font-semibold text-white transition-all duration-300 hover:scale-105 hover:shadow-cyan-500/25 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-cyan-400/50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-none"
-                  disabled={!birthDate}
-                  onClick={handleSave}
-                  type="button"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 to-blue-400 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                  <div className="relative flex items-center justify-center gap-2">
-                    <span>時計をスタート</span>
-                    <div className="h-2 w-2 animate-pulse rounded-full bg-white/80" />
-                  </div>
-                </button>
-                {!birthDate && (
-                  <span className="sr-only" id="save-disabled-help">
-                    保存するには生年月日を入力してください
-                  </span>
-                )}
-              </div>
+              )}
+              <button
+                className="flex-1 rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                disabled={!(tempYear && tempMonth && tempDay)}
+                onClick={handleSave}
+                type="button"
+              >
+                計算を開始
+              </button>
             </div>
           </div>
-        </button>
-      )}
-    </>
-  );
-}
-
-export default function Home() {
-  return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900">
-      <div className="container mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-4 py-8">
-        <div className="mb-12 space-y-6 text-center">
-          <div className="mb-6 inline-flex items-center rounded-full border border-cyan-500/20 bg-cyan-500/10 px-4 py-2">
-            <span className="font-medium text-cyan-300 text-sm">
-              人生をもっと大切に
-            </span>
-          </div>
-
-          <h1 className="bg-gradient-to-r from-white via-cyan-100 to-blue-100 bg-clip-text font-bold text-4xl text-transparent leading-tight md:text-6xl lg:text-7xl">
-            あなたの人生の
-            <br />
-            <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
-              残された時間
-            </span>
-          </h1>
-
-          <p className="mx-auto max-w-2xl text-lg text-slate-300 leading-relaxed md:text-xl">
-            毎日を意味あるものにするために、
-            <br className="hidden sm:block" />
-            限られた時間を可視化します
-          </p>
-        </div>
-
-        <div className="mb-12 grid gap-8 md:gap-12">
-          <DaysLeftCard />
-        </div>
-
-        <div className="mb-12 grid gap-6 md:grid-cols-2">
-          <LifeProgressCard />
-          <MotivationCard />
-        </div>
-
-        <div className="space-y-4 text-center">
-          <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <SettingsButton />
-            <InstallPwaButton />
-          </div>
-        </div>
+        )}
       </div>
     </main>
   );
