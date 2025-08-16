@@ -34,6 +34,12 @@ export function InstallPwaButton() {
   useEffect(() => {
     // PWAがすでにインストールされているかチェック
     const checkIfInstalled = () => {
+      // テスト環境でのfallback
+      if (typeof window === 'undefined' || !window.matchMedia) {
+        setIsInstalled(false);
+        return;
+      }
+
       const isStandalone = window.matchMedia(
         '(display-mode: standalone)'
       ).matches;
