@@ -33,7 +33,7 @@
   },
   "overrides": [
     {
-      "includes": ["public/sw.js"],
+      "includes": ["public/sw*.js"],
       "linter": {
         "enabled": false
       }
