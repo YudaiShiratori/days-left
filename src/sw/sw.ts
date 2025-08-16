@@ -27,16 +27,29 @@ self.addEventListener('message', (event) => {
   }
 });
 
-// アクティベート時に即座にクライアントを制御
-self.addEventListener('activate', () => {
-  self.clients.claim();
+// インストール時に即座にアクティブ化を試行
+self.addEventListener('install', () => {
+  self.skipWaiting();
 });
 
-// HTMLページのキャッシュ戦略: Network First
+// アクティベート時に即座にクライアントを制御
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    (async () => {
+      // 古いキャッシュを削除
+      await cleanupOutdatedCaches();
+      // 即座にクライアントを制御
+      await self.clients.claim();
+    })()
+  );
+});
+
+// HTMLページのキャッシュ戦略: Network First（常に最新版を優先）
 registerRoute(
   ({ request }) => request.mode === 'navigate',
   new NetworkFirst({
     cacheName: 'pages',
+    networkTimeoutSeconds: 3, // 3秒でタイムアウト
     plugins: [
       {
         cacheKeyWillBeUsed: ({ request }) => {
@@ -44,6 +57,22 @@ registerRoute(
           const url = new URL(request.url);
           url.search = '';
           return Promise.resolve(url.href);
+        },
+        requestWillFetch: ({ request }) => {
+          // キャッシュバスティング用のタイムスタンプを追加
+          const url = new URL(request.url);
+          url.searchParams.set('_t', Date.now().toString());
+          return Promise.resolve(
+            new Request(url.href, {
+              method: request.method,
+              headers: request.headers,
+              body: request.body,
+              mode: request.mode,
+              credentials: request.credentials,
+              cache: 'no-cache', // キャッシュを使わずに最新を取得
+              redirect: request.redirect,
+            })
+          );
         },
       },
     ],

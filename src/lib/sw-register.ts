@@ -27,15 +27,28 @@ export const registerServiceWorker = async (): Promise<void> => {
     window.location.reload();
   });
 
+  // 新しいService Workerがインストールされた時
+  wb.addEventListener('installed', (event) => {
+    if (event.isUpdate) {
+      // 即座に新しいService Workerをアクティブ化
+      wb.messageSkipWaiting();
+    }
+  });
+
   // Service Worker待機中（新バージョン利用可能）
-  wb.addEventListener('waiting', () => {
+  wb.addEventListener('waiting', (_event) => {
     // skipWaitingメッセージを送信して即座に更新
     wb.messageSkipWaiting();
   });
 
   // Service Worker登録
   try {
-    await wb.register();
+    const registration = await wb.register();
+
+    // 定期的な更新チェック（1分間隔）
+    setInterval(() => {
+      registration?.update();
+    }, 60_000);
   } catch (_error) {
     // Service Worker登録失敗は無視（非対応ブラウザ等）
   }
