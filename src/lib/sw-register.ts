@@ -20,22 +20,21 @@ export const registerServiceWorker = async (): Promise<void> => {
     return;
   }
 
-  // 古いService Worker（sw.js）を確実に削除
+  // すべてのService Workerを強制削除してクリーンスタート
   try {
     const registrations = await navigator.serviceWorker.getRegistrations();
-    const unregisterPromises = registrations
-      .filter(
-        (registration) =>
-          registration.scope.includes('/') &&
-          (registration.active?.scriptURL.includes('sw.js') ||
-            registration.installing?.scriptURL.includes('sw.js') ||
-            registration.waiting?.scriptURL.includes('sw.js'))
-      )
-      .map((registration) => registration.unregister());
+    await Promise.all(
+      registrations.map((registration) => registration.unregister())
+    );
 
-    await Promise.all(unregisterPromises);
+    // すべてのキャッシュも削除
+    const cacheNames = await caches.keys();
+    await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+
+    // 少し待ってから新しいService Workerを登録
+    await new Promise((resolve) => setTimeout(resolve, 100));
   } catch (_error) {
-    // 古いSW削除エラーは無視
+    // 削除エラーは無視
   }
 
   const wb = new Workbox('/sw-v2.js');

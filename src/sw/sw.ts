@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 // Service Worker Version - Update this to force cache invalidation
-const SW_VERSION = '2025-08-16-v2';
+const SW_VERSION = '2025-08-16-v3-FORCE-RESET';
 
 import {
   cleanupOutdatedCaches,
@@ -16,6 +16,21 @@ declare const self: ServiceWorkerGlobalScope & {
 };
 
 // PWA インストールプロンプト関連
+
+// 強制的に古いキャッシュを全削除
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    (async () => {
+      // すべてのキャッシュを強制削除
+      const cacheNames = await caches.keys();
+      await Promise.all(
+        cacheNames
+          .filter((cacheName) => !cacheName.includes(SW_VERSION))
+          .map((cacheName) => caches.delete(cacheName))
+      );
+    })()
+  );
+});
 
 // 古いキャッシュを自動削除
 cleanupOutdatedCaches();
