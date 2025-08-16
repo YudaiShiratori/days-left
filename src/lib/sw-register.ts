@@ -14,122 +14,170 @@ interface BeforeInstallPromptEvent extends Event {
 const isProduction = process.env.NODE_ENV === 'production';
 const isClient = typeof window !== 'undefined';
 
+// Service Workerのバージョンチェック
+const checkServiceWorkerVersion = async (
+  controller: ServiceWorker,
+  expectedVersion: string
+): Promise<boolean> => {
+  try {
+    const messageChannel = new MessageChannel();
+    const versionPromise = new Promise<string | null>((resolve) => {
+      messageChannel.port1.onmessage = (event) => {
+        resolve(event.data.version);
+      };
+      setTimeout(() => resolve(null), 1000);
+    });
+
+    controller.postMessage({ type: 'GET_VERSION' }, [messageChannel.port2]);
+    const currentVersion = await versionPromise;
+
+    return currentVersion === expectedVersion;
+  } catch {
+    return false;
+  }
+};
+
+// Service Workerクリーンアップ
+const cleanupServiceWorkers = async (): Promise<void> => {
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(
+      registrations.map(async (swRegistration) => {
+        try {
+          await swRegistration.unregister();
+        } catch {
+          // 個別の登録解除エラーは無視
+        }
+      })
+    );
+
+    if ('caches' in window) {
+      const cacheNames = await caches.keys();
+      await Promise.all(
+        cacheNames.map(async (cacheName) => {
+          try {
+            await caches.delete(cacheName);
+          } catch {
+            // 個別のキャッシュ削除エラーは無視
+          }
+        })
+      );
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    window.location.reload();
+  } catch {
+    // クリーンアップ失敗時も続行
+  }
+};
+
+// Service Worker登録とイベントハンドラー設定
+const setupServiceWorker = async (wb: Workbox): Promise<void> => {
+  wb.addEventListener('controlling', () => {
+    try {
+      window.location.reload();
+    } catch {
+      // リロード失敗は無視
+    }
+  });
+
+  wb.addEventListener('installed', (event) => {
+    if (event.isUpdate) {
+      try {
+        wb.messageSkipWaiting();
+      } catch {
+        // skipWaiting失敗は無視
+      }
+    }
+  });
+
+  wb.addEventListener('waiting', () => {
+    try {
+      wb.messageSkipWaiting();
+    } catch {
+      // skipWaiting失敗は無視
+    }
+  });
+
+  const registration = await wb.register();
+
+  if (registration) {
+    try {
+      await registration.update();
+    } catch {
+      // 初期更新チェック失敗は無視
+    }
+
+    const updateInterval = setInterval(async () => {
+      try {
+        if (registration.active) {
+          await registration.update();
+        } else {
+          clearInterval(updateInterval);
+        }
+      } catch {
+        // 定期更新チェック失敗は無視
+      }
+    }, 30_000);
+
+    const handleVisibilityChange = async () => {
+      if (!document.hidden) {
+        try {
+          if (registration.active) {
+            await registration.update();
+          }
+        } catch {
+          // 可視性更新チェック失敗は無視
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    window.addEventListener('beforeunload', () => {
+      clearInterval(updateInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    });
+  }
+};
+
 export const registerServiceWorker = async (): Promise<void> => {
-  // 開発環境またはサーバーサイドでは何もしない
   if (!(isProduction && isClient && 'serviceWorker' in navigator)) {
     return;
   }
 
-  // 期待されるService Workerバージョン
-  const EXPECTED_SW_VERSION = '2025-08-16-v3-FORCE-RESET';
-
-  // 既存のService Workerのバージョンチェック
-  const controller = navigator.serviceWorker.controller;
-  if (controller) {
-    try {
-      // 現在のSWにバージョン確認メッセージを送信
-      const messageChannel = new MessageChannel();
-      const versionPromise = new Promise((resolve) => {
-        messageChannel.port1.onmessage = (event) => {
-          resolve(event.data.version);
-        };
-        setTimeout(() => resolve(null), 1000); // 1秒でタイムアウト
-      });
-
-      controller.postMessage({ type: 'GET_VERSION' }, [messageChannel.port2]);
-      const currentVersion = await versionPromise;
-
-      // バージョンが一致しない場合、強制リロード
-      if (currentVersion !== EXPECTED_SW_VERSION) {
-        // すべてのService Workerを強制削除
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(
-          registrations.map((registration) => registration.unregister())
-        );
-
-        // すべてのキャッシュも削除
-        const cacheNames = await caches.keys();
-        await Promise.all(
-          cacheNames.map((cacheName) => caches.delete(cacheName))
-        );
-
-        // ページを強制リロード（キャッシュ無効化）
-        window.location.reload();
-        return;
-      }
-    } catch (_error) {
-      // バージョンチェック失敗時は続行
-    }
-  } else {
-    // Service Workerが制御していない場合、全削除してクリーンスタート
-    try {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(
-        registrations.map((registration) => registration.unregister())
-      );
-
-      // すべてのキャッシュも削除
-      const cacheNames = await caches.keys();
-      await Promise.all(
-        cacheNames.map((cacheName) => caches.delete(cacheName))
-      );
-
-      // 少し待ってから新しいService Workerを登録
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    } catch (_error) {
-      // 削除エラーは無視
-    }
-  }
-
-  const wb = new Workbox('/sw-v2.js');
-
-  // Service Worker更新検知時の自動リロード
-  wb.addEventListener('controlling', () => {
-    window.location.reload();
-  });
-
-  // 新しいService Workerがインストールされた時
-  wb.addEventListener('installed', (event) => {
-    if (event.isUpdate) {
-      // 即座に新しいService Workerをアクティブ化
-      wb.messageSkipWaiting();
-    }
-  });
-
-  // Service Worker待機中（新バージョン利用可能）
-  wb.addEventListener('waiting', (_event) => {
-    // skipWaitingメッセージを送信して即座に更新
-    wb.messageSkipWaiting();
-  });
-
-  // Service Worker登録
   try {
-    const registration = await wb.register();
+    const EXPECTED_SW_VERSION = '2025-08-16-v3-FORCE-RESET';
+    const controller = navigator.serviceWorker.controller;
+    let needsCleanup = false;
 
-    // 即座に更新チェック
-    await registration?.update();
+    if (controller) {
+      const isVersionMatch = await checkServiceWorkerVersion(
+        controller,
+        EXPECTED_SW_VERSION
+      );
+      needsCleanup = !isVersionMatch;
+    } else {
+      needsCleanup = true;
+    }
 
-    // より頻繁な更新チェック（30秒間隔）
-    setInterval(async () => {
-      try {
-        await registration?.update();
-      } catch (_error) {
-        // 更新チェック失敗は無視
+    if (needsCleanup) {
+      await cleanupServiceWorkers();
+      return;
+    }
+
+    const wb = new Workbox('/sw-v2.js');
+    await setupServiceWorker(wb);
+  } catch {
+    // 最後の手段としてキャッシュクリア
+    try {
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map((name) => caches.delete(name)));
       }
-    }, 30_000);
-
-    // ページの可視性が変わった時にも更新チェック
-    document.addEventListener('visibilitychange', async () => {
-      if (!document.hidden) {
-        try {
-          await registration?.update();
-        } catch (_error) {
-          // 更新チェック失敗は無視
-        }
-      }
-    });
-  } catch (_error) {
-    // Service Worker登録失敗は無視（非対応ブラウザ等）
+    } catch {
+      // 最終クリーンアップ失敗も無視
+    }
   }
 };
 
@@ -197,6 +245,84 @@ export const isServiceWorkerControlled = (): boolean => {
   return isClient && navigator.serviceWorker?.controller !== null;
 };
 
+// Service Worker登録解除
+const unregisterAllServiceWorkers = async (): Promise<void> => {
+  if ('serviceWorker' in navigator) {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(
+      registrations.map(async (registration) => {
+        try {
+          await registration.unregister();
+        } catch (_error) {
+          // 個別の登録解除エラーは無視して続行
+        }
+      })
+    );
+  }
+};
+
+// 全キャッシュ削除
+const deleteAllCaches = async (): Promise<void> => {
+  const cacheNames = await caches.keys();
+  await Promise.all(
+    cacheNames.map(async (cacheName) => {
+      try {
+        await caches.delete(cacheName);
+      } catch (_error) {
+        // 個別のキャッシュ削除エラーは無視して続行
+      }
+    })
+  );
+};
+
+// PWA関連のlocalStorage項目クリア
+const clearLocalStorageItems = (): void => {
+  try {
+    if ('localStorage' in window) {
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith('workbox-') || key.startsWith('pwa-')) {
+          localStorage.removeItem(key);
+        }
+      }
+    }
+  } catch (_error) {
+    // localStorage操作エラーは無視して続行
+  }
+};
+
+// PWA関連のsessionStorage項目クリア
+const clearSessionStorageItems = (): void => {
+  try {
+    if ('sessionStorage' in window) {
+      for (const key of Object.keys(sessionStorage)) {
+        if (key.startsWith('workbox-') || key.startsWith('pwa-')) {
+          sessionStorage.removeItem(key);
+        }
+      }
+    }
+  } catch (_error) {
+    // sessionStorage操作エラーは無視して続行
+  }
+};
+
+// IndexedDB クリア
+const clearIndexedDBData = async (): Promise<void> => {
+  try {
+    if ('indexedDB' in window) {
+      const dbDeletePromise = new Promise<void>((resolve) => {
+        const deleteReq = indexedDB.deleteDatabase('workbox-expiration');
+        deleteReq.onsuccess = () => resolve();
+        deleteReq.onerror = () => resolve();
+        deleteReq.onblocked = () => resolve();
+        setTimeout(() => resolve(), 1000);
+      });
+      await dbDeletePromise;
+    }
+  } catch (_error) {
+    // IndexedDB操作エラーは無視して続行
+  }
+};
+
 // キャッシュ手動クリア（デバッグ用）
 export const clearServiceWorkerCache = async (): Promise<void> => {
   if (!(isClient && 'caches' in window)) {
@@ -204,10 +330,14 @@ export const clearServiceWorkerCache = async (): Promise<void> => {
   }
 
   try {
-    const cacheNames = await caches.keys();
-    await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+    await unregisterAllServiceWorkers();
+    await deleteAllCaches();
+    clearLocalStorageItems();
+    clearSessionStorageItems();
+    await clearIndexedDBData();
+    await new Promise((resolve) => setTimeout(resolve, 100));
   } catch (_error) {
-    // キャッシュクリア失敗は無視
+    // 全体的なエラーは無視してアプリケーションを停止させない
   }
 };
 

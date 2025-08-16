@@ -15,19 +15,41 @@ declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string; revision: string | null }>;
 };
 
+// Service Worker のグローバルエラーハンドリング
+self.addEventListener('error', (event) => {
+  // エラーが発生してもService Workerを停止させない
+  event.preventDefault();
+});
+
+// 未処理のPromise rejection をキャッチ
+self.addEventListener('unhandledrejection', (event) => {
+  // エラーが発生してもService Workerを停止させない
+  event.preventDefault();
+});
+
 // PWA インストールプロンプト関連
 
 // 強制的に古いキャッシュを全削除
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
-      // すべてのキャッシュを強制削除
-      const cacheNames = await caches.keys();
-      await Promise.all(
-        cacheNames
-          .filter((cacheName) => !cacheName.includes(SW_VERSION))
-          .map((cacheName) => caches.delete(cacheName))
-      );
+      try {
+        // すべてのキャッシュを強制削除
+        const cacheNames = await caches.keys();
+        await Promise.all(
+          cacheNames
+            .filter((cacheName) => !cacheName.includes(SW_VERSION))
+            .map(async (cacheName) => {
+              try {
+                await caches.delete(cacheName);
+              } catch (_error) {
+                // 個別のキャッシュ削除エラーは無視して続行
+              }
+            })
+        );
+      } catch (_error) {
+        // キャッシュクリーンアップエラーは無視して続行
+      }
     })()
   );
 });
@@ -54,10 +76,19 @@ self.addEventListener('install', () => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
-      // 古いキャッシュを削除
-      await cleanupOutdatedCaches();
-      // 即座にクライアントを制御
-      await self.clients.claim();
+      try {
+        // 古いキャッシュを削除
+        await cleanupOutdatedCaches();
+        // 即座にクライアントを制御
+        await self.clients.claim();
+      } catch (_error) {
+        // エラーが発生してもクライアント制御を試行
+        try {
+          await self.clients.claim();
+        } catch (_claimError) {
+          // クライアント制御失敗は無視して続行
+        }
+      }
     })()
   );
 });

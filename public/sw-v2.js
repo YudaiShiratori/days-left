@@ -775,7 +775,7 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
       i
     );
   }
-  class K extends P {
+  class N extends P {
     constructor(e, t) {
       super(({ request: a }) => {
         let s = e.getURLsToCacheKeys();
@@ -814,8 +814,8 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
       }, e.strategy);
     }
   }
-  let N = '-precache-',
-    q = async (e, t = N) => {
+  let K = '-precache-',
+    q = async (e, t = K) => {
       let a = (await self.caches.keys()).filter(
         (a) => a.includes(t) && a.includes(self.registration.scope) && a !== e
       );
@@ -902,7 +902,7 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
       return e && clearTimeout(e), (i || !r) && (r = await s.cacheMatch(t)), r;
     }
   }
-  class A extends v {
+  class O extends v {
     constructor(e = {}) {
       super(e),
         this.plugins.some((e) => 'cacheWillUpdate' in e) ||
@@ -924,27 +924,41 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
       return i;
     }
   }
-  let O = '2025-08-16-v3-FORCE-RESET';
-  self.addEventListener('activate', (e) => {
-    e.waitUntil(
-      (async () => {
-        let e = await caches.keys();
-        await Promise.all(
-          e.filter((e) => !e.includes(O)).map((e) => caches.delete(e))
-        );
-      })()
-    );
+  let A = '2025-08-16-v3-FORCE-RESET';
+  self.addEventListener('error', (e) => {
+    e.preventDefault();
   }),
+    self.addEventListener('unhandledrejection', (e) => {
+      e.preventDefault();
+    }),
+    self.addEventListener('activate', (e) => {
+      e.waitUntil(
+        (async () => {
+          try {
+            let e = await caches.keys();
+            await Promise.all(
+              e
+                .filter((e) => !e.includes(A))
+                .map(async (e) => {
+                  try {
+                    await caches.delete(e);
+                  } catch (e) {}
+                })
+            );
+          } catch (e) {}
+        })()
+      );
+    }),
     W(),
     (function (e, t) {
-      T().precache(e), x(new K(T(), void 0));
+      T().precache(e), x(new N(T(), void 0));
     })([
       {
-        revision: 'a0af7cdb648543b4f2f4a0e6a15d5045',
+        revision: 'f3f49eb056d0198fdccd01d3ec7f2cf7',
         url: '/_next/app-build-manifest.json',
       },
       {
-        revision: 'a00bf2eb0b6a826589797687d12b1095',
+        revision: '1a2e3e232539b38615610fd70327cbbf',
         url: '/_next/build-manifest.json',
       },
       {
@@ -969,11 +983,11 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
       },
       {
         revision: 'a8bc11c8c3293c5f0602d02f2ec83352',
-        url: '/_next/static/Jf1aJQEOtqUYaPOVeid3Q/_buildManifest.js',
+        url: '/_next/static/8Y6omHM97yY-EqdxMjwo2/_buildManifest.js',
       },
       {
         revision: 'b6652df95db52feb4daf4eca35380933',
-        url: '/_next/static/Jf1aJQEOtqUYaPOVeid3Q/_ssgManifest.js',
+        url: '/_next/static/8Y6omHM97yY-EqdxMjwo2/_ssgManifest.js',
       },
       {
         revision: null,
@@ -991,11 +1005,11 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
       },
       {
         revision: null,
-        url: '/_next/static/chunks/app/layout-55da3ea81d9c48b1.js',
+        url: '/_next/static/chunks/app/layout-cf53a02cd9cf5ae1.js',
       },
       {
         revision: null,
-        url: '/_next/static/chunks/app/page-9cdf746a0c9bef55.js',
+        url: '/_next/static/chunks/app/page-99798ba7ee94c3b8.js',
       },
       {
         revision: null,
@@ -1530,7 +1544,13 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
     self.addEventListener('activate', (e) => {
       e.waitUntil(
         (async () => {
-          await W(), await self.clients.claim();
+          try {
+            await W(), await self.clients.claim();
+          } catch (e) {
+            try {
+              await self.clients.claim();
+            } catch (e) {}
+          }
         })()
       );
     }),
@@ -1544,7 +1564,7 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
         try {
           let e = new URL(t.url);
           e.searchParams.set('_cache_bust', Date.now().toString()),
-            e.searchParams.set('_sw_version', O);
+            e.searchParams.set('_sw_version', A);
           let a = new Request(e.href, {
             method: t.method,
             headers: {
@@ -1578,14 +1598,14 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
           'image' === t.destination
         );
       },
-      new A({ cacheName: 'static-assets' })
+      new O({ cacheName: 'static-assets' })
     ),
     x(
       (e) => {
         let { url: t } = e;
         return t.pathname.startsWith('/_next/static/');
       },
-      new A({ cacheName: 'next-static' })
+      new O({ cacheName: 'next-static' })
     ),
     x(
       (e) => {
@@ -1607,9 +1627,12 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
         });
     }),
     self.addEventListener('message', (e) => {
-      if (e.data && 'CLIENT_READY' === e.data.type) {
-        var t;
-        null == (t = e.ports[0]) || t.postMessage({ type: 'SW_READY' });
-      }
+      var t, a;
+      e.data &&
+        'CLIENT_READY' === e.data.type &&
+        (null == (t = e.ports[0]) || t.postMessage({ type: 'SW_READY' })),
+        e.data &&
+          'GET_VERSION' === e.data.type &&
+          (null == (a = e.ports[0]) || a.postMessage({ version: A }));
     });
 })();
