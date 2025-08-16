@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # 変更履歴を取得するために必要
           fetch-depth: 0
@@ -78,7 +78,7 @@ jobs:
     needs: lint
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -112,7 +112,7 @@ jobs:
     needs: lint
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -174,7 +174,7 @@ jobs:
 #       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 #     steps:
 #       - name: Checkout code
-#         uses: actions/checkout@v4
+#         uses: actions/checkout@v5
 #       - name: Setup Node.js
 #         uses: actions/setup-node@v4
 #         with:
@@ -240,7 +240,7 @@ jobs:
 #       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 #     steps:
 #       - name: Checkout code
-#         uses: actions/checkout@v4
+#         uses: actions/checkout@v5
         
 #       - name: Setup Node.js
 #         uses: actions/setup-node@v4
