@@ -16,7 +16,7 @@ const config = {
       webpackConfig.plugins.push(
         new InjectManifest({
           swSrc: 'src/sw/sw.ts',
-          swDest: '../public/sw.js',
+          swDest: '../public/sw-v2.js',
           exclude: WORKBOX_EXCLUDE_PATTERNS,
           // Next.js の静的アセットを自動認識
           manifestTransforms: [

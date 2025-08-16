@@ -20,7 +20,25 @@ export const registerServiceWorker = async (): Promise<void> => {
     return;
   }
 
-  const wb = new Workbox('/sw.js');
+  // 古いService Worker（sw.js）を確実に削除
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    const unregisterPromises = registrations
+      .filter(
+        (registration) =>
+          registration.scope.includes('/') &&
+          (registration.active?.scriptURL.includes('sw.js') ||
+            registration.installing?.scriptURL.includes('sw.js') ||
+            registration.waiting?.scriptURL.includes('sw.js'))
+      )
+      .map((registration) => registration.unregister());
+
+    await Promise.all(unregisterPromises);
+  } catch (_error) {
+    // 古いSW削除エラーは無視
+  }
+
+  const wb = new Workbox('/sw-v2.js');
 
   // Service Worker更新検知時の自動リロード
   wb.addEventListener('controlling', () => {
@@ -45,10 +63,28 @@ export const registerServiceWorker = async (): Promise<void> => {
   try {
     const registration = await wb.register();
 
-    // 定期的な更新チェック（1分間隔）
-    setInterval(() => {
-      registration?.update();
-    }, 60_000);
+    // 即座に更新チェック
+    await registration?.update();
+
+    // より頻繁な更新チェック（30秒間隔）
+    setInterval(async () => {
+      try {
+        await registration?.update();
+      } catch (_error) {
+        // 更新チェック失敗は無視
+      }
+    }, 30_000);
+
+    // ページの可視性が変わった時にも更新チェック
+    document.addEventListener('visibilitychange', async () => {
+      if (!document.hidden) {
+        try {
+          await registration?.update();
+        } catch (_error) {
+          // 更新チェック失敗は無視
+        }
+      }
+    });
   } catch (_error) {
     // Service Worker登録失敗は無視（非対応ブラウザ等）
   }

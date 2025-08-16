@@ -1,5 +1,8 @@
 /// <reference lib="webworker" />
 
+// Service Worker Version - Update this to force cache invalidation
+const SW_VERSION = '2025-08-16-v2';
+
 import {
   cleanupOutdatedCaches,
   createHandlerBoundToURL,
@@ -44,39 +47,41 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// HTMLページのキャッシュ戦略: Network First（常に最新版を優先）
+// HTMLページは常にネットワークから取得（キャッシュバイパス）
 registerRoute(
   ({ request }) => request.mode === 'navigate',
-  new NetworkFirst({
-    cacheName: 'pages',
-    networkTimeoutSeconds: 3, // 3秒でタイムアウト
-    plugins: [
-      {
-        cacheKeyWillBeUsed: ({ request }) => {
-          // クエリパラメータを除去してキャッシュキーを正規化
-          const url = new URL(request.url);
-          url.search = '';
-          return Promise.resolve(url.href);
+  async ({ request }) => {
+    try {
+      // 常にネットワークから最新版を取得
+      const url = new URL(request.url);
+      url.searchParams.set('_cache_bust', Date.now().toString());
+      url.searchParams.set('_sw_version', SW_VERSION);
+
+      const networkRequest = new Request(url.href, {
+        method: request.method,
+        headers: {
+          ...Object.fromEntries(request.headers.entries()),
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0',
         },
-        requestWillFetch: ({ request }) => {
-          // キャッシュバスティング用のタイムスタンプを追加
-          const url = new URL(request.url);
-          url.searchParams.set('_t', Date.now().toString());
-          return Promise.resolve(
-            new Request(url.href, {
-              method: request.method,
-              headers: request.headers,
-              body: request.body,
-              mode: request.mode,
-              credentials: request.credentials,
-              cache: 'no-cache', // キャッシュを使わずに最新を取得
-              redirect: request.redirect,
-            })
-          );
-        },
-      },
-    ],
-  })
+        body: request.body,
+        mode: request.mode,
+        credentials: request.credentials,
+        cache: 'no-store', // 完全にキャッシュを無効化
+        redirect: request.redirect,
+      });
+
+      return await fetch(networkRequest);
+    } catch (error) {
+      const cache = await caches.open('pages-fallback');
+      const cachedResponse = await cache.match(request);
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      throw error;
+    }
+  }
 );
 
 // 静的アセット（CSS, JS, フォント, 画像）: Stale While Revalidate
