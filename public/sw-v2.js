@@ -755,7 +755,7 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
       else throw new n('unregister-route-route-not-registered');
     }
   }
-  function x(e, t, s) {
+  function N(e, t, s) {
     let i;
     if ('string' == typeof e) {
       let a = new URL(e, location.href);
@@ -775,7 +775,7 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
       i
     );
   }
-  class N extends P {
+  class x extends P {
     constructor(e, t) {
       super(({ request: a }) => {
         let s = e.getURLsToCacheKeys();
@@ -840,15 +840,15 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
       return !!this._allowlist.some((e) => e.test(a));
     }
   }
-  let S = {
+  let A = {
     cacheWillUpdate: async ({ response: e }) =>
       200 === e.status || 0 === e.status ? e : null,
   };
-  class A extends v {
+  class S extends v {
     constructor(e = {}) {
       super(e),
         this.plugins.some((e) => 'cacheWillUpdate' in e) ||
-          this.plugins.unshift(S),
+          this.plugins.unshift(A),
         (this._networkTimeoutSeconds = e.networkTimeoutSeconds || 0);
     }
     async _handle(e, t) {
@@ -902,11 +902,11 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
       return e && clearTimeout(e), (i || !r) && (r = await s.cacheMatch(t)), r;
     }
   }
-  class I extends v {
+  class O extends v {
     constructor(e = {}) {
       super(e),
         this.plugins.some((e) => 'cacheWillUpdate' in e) ||
-          this.plugins.unshift(S);
+          this.plugins.unshift(A);
     }
     async _handle(e, t) {
       let a,
@@ -924,7 +924,7 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
       return i;
     }
   }
-  let O = '2025-08-17-v4-FIREFOX-FIX';
+  let I = '2025-08-17-v5-NO-RELOAD';
   self.addEventListener('error', (e) => {
     e.preventDefault();
   }),
@@ -938,7 +938,7 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
             let e = await caches.keys();
             await Promise.all(
               e
-                .filter((e) => !e.includes(O))
+                .filter((e) => !e.includes(I))
                 .map(async (e) => {
                   try {
                     await caches.delete(e);
@@ -951,14 +951,14 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
     }),
     W(),
     (function (e, t) {
-      T().precache(e), x(new N(T(), void 0));
+      T().precache(e), N(new x(T(), void 0));
     })([
       {
-        revision: 'f06193d22679f50629f2a1171109f7db',
+        revision: '4bf90e3c51bf0a9e60dc73c856b1041f',
         url: '/_next/app-build-manifest.json',
       },
       {
-        revision: '034930fa051d24a163ef4aa94ab23765',
+        revision: '082c7776e5413d5e0df1f18227bb7727',
         url: '/_next/build-manifest.json',
       },
       {
@@ -997,11 +997,11 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
       },
       {
         revision: null,
-        url: '/_next/static/chunks/app/layout-0518ffb575f9c143.js',
+        url: '/_next/static/chunks/app/layout-7093bf7c20a27a7f.js',
       },
       {
         revision: null,
-        url: '/_next/static/chunks/app/page-7c946d0725ff1855.js',
+        url: '/_next/static/chunks/app/page-2bc60f3894396599.js',
       },
       {
         revision: null,
@@ -1032,11 +1032,11 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
       { revision: null, url: '/_next/static/css/c00a63b51b0e21cf.css' },
       {
         revision: 'a8bc11c8c3293c5f0602d02f2ec83352',
-        url: '/_next/static/iUZbkrHLrD6cbCOoKOhEk/_buildManifest.js',
+        url: '/_next/static/gwbeO-f030PG2YZxHFoYg/_buildManifest.js',
       },
       {
         revision: 'b6652df95db52feb4daf4eca35380933',
-        url: '/_next/static/iUZbkrHLrD6cbCOoKOhEk/_ssgManifest.js',
+        url: '/_next/static/gwbeO-f030PG2YZxHFoYg/_ssgManifest.js',
       },
       {
         revision: '7e4af5fbbda38fc26b3c05fbaa79853c',
@@ -1565,7 +1565,7 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
         })()
       );
     }),
-    x(
+    N(
       (e) => {
         let { request: t } = e,
           a = new URL(t.url);
@@ -1586,7 +1586,7 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
               'Cache-Control': 'no-cache, no-store, must-revalidate',
               Pragma: 'no-cache',
               Expires: '0',
-              'X-SW-Version': O,
+              'X-SW-Version': I,
             },
             body: t.body,
             mode: t.mode,
@@ -1605,7 +1605,7 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
         }
       }
     ),
-    x(
+    N(
       (e) => {
         let { request: t } = e;
         return (
@@ -1615,23 +1615,23 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
           'image' === t.destination
         );
       },
-      new I({ cacheName: 'static-assets' })
+      new O({ cacheName: 'static-assets' })
     ),
-    x(
+    N(
       (e) => {
         let { url: t } = e;
         return t.pathname.startsWith('/_next/static/');
       },
-      new I({ cacheName: 'next-static' })
+      new O({ cacheName: 'next-static' })
     ),
-    x(
+    N(
       (e) => {
         let { url: t } = e;
         return t.pathname.startsWith('/api/');
       },
-      new A({ cacheName: 'api', networkTimeoutSeconds: 10 })
+      new S({ cacheName: 'api', networkTimeoutSeconds: 10 })
     ),
-    x(
+    N(
       new M(T().createHandlerBoundToURL('/'), {
         denylist: [/^\/_/, /\/[^/?]+\.[^/]+$/],
       })
@@ -1650,6 +1650,6 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
         (null == (t = e.ports[0]) || t.postMessage({ type: 'SW_READY' })),
         e.data &&
           'GET_VERSION' === e.data.type &&
-          (null == (a = e.ports[0]) || a.postMessage({ version: O }));
+          (null == (a = e.ports[0]) || a.postMessage({ version: I }));
     });
 })();

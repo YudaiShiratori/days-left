@@ -37,8 +37,8 @@ const checkServiceWorkerVersion = async (
   }
 };
 
-// Service Workerクリーンアップ
-const _cleanupServiceWorkers = async (): Promise<void> => {
+// Service Workerクリーンアップ（リロードなし）
+const cleanupServiceWorkers = async (): Promise<void> => {
   try {
     const registrations = await navigator.serviceWorker.getRegistrations();
     await Promise.all(
@@ -63,9 +63,6 @@ const _cleanupServiceWorkers = async (): Promise<void> => {
         })
       );
     }
-
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    window.location.reload();
   } catch {
     // クリーンアップ失敗時も続行
   }
@@ -74,11 +71,8 @@ const _cleanupServiceWorkers = async (): Promise<void> => {
 // Service Worker登録とイベントハンドラー設定
 const setupServiceWorker = async (wb: Workbox): Promise<void> => {
   wb.addEventListener('controlling', () => {
-    try {
-      window.location.reload();
-    } catch {
-      // リロード失敗は無視
-    }
+    // controllingイベントではリロードしない（チカチカ防止）
+    // 新しいService Workerが制御を取得したことを通知
   });
 
   wb.addEventListener('installed', (event) => {
@@ -141,45 +135,20 @@ const setupServiceWorker = async (wb: Workbox): Promise<void> => {
   }
 };
 
-// 強制更新関数
-const forceServiceWorkerUpdate = async (): Promise<void> => {
+// Service Workerの再登録（リロードなし）
+const reregisterServiceWorker = async (): Promise<void> => {
   try {
-    // 既存のService Workerに強制更新を指示
-    if (navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'FORCE_UPDATE' });
+    // 既存のService Workerをクリーンアップ
+    await cleanupServiceWorkers();
 
-      // 更新完了を待つ
-      await new Promise<void>((resolve) => {
-        const messageHandler = (event: MessageEvent) => {
-          if (event.data && event.data.type === 'CACHE_CLEARED') {
-            navigator.serviceWorker.removeEventListener(
-              'message',
-              messageHandler
-            );
-            resolve();
-          }
-        };
-        navigator.serviceWorker.addEventListener('message', messageHandler);
+    // 少し待ってから新しいService Workerを登録
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
-        // 3秒でタイムアウト
-        setTimeout(() => {
-          navigator.serviceWorker.removeEventListener(
-            'message',
-            messageHandler
-          );
-          resolve();
-        }, 3000);
-      });
-    }
-
-    // 全キャッシュを手動でクリア
-    await clearServiceWorkerCache();
-
-    // ページリロード
-    window.location.reload();
+    // 新しいService Workerを登録
+    const wb = new Workbox('/sw-v2.js');
+    await setupServiceWorker(wb);
   } catch (_error) {
-    // エラーが発生してもリロードで続行
-    window.location.reload();
+    // エラーが発生しても続行
   }
 };
 
@@ -189,31 +158,46 @@ export const registerServiceWorker = async (): Promise<void> => {
   }
 
   try {
-    const EXPECTED_SW_VERSION = '2025-08-17-v4-FIREFOX-FIX';
+    const EXPECTED_SW_VERSION = '2025-08-17-v5-NO-RELOAD';
+
+    // 既にバージョンチェック済みか確認（セッションストレージで管理）
+    const versionCheckKey = 'sw-version-checked';
+    const lastCheckedVersion = sessionStorage.getItem(versionCheckKey);
+
+    if (lastCheckedVersion === EXPECTED_SW_VERSION) {
+      // 既にチェック済みの場合は何もしない
+      const wb = new Workbox('/sw-v2.js');
+      await setupServiceWorker(wb);
+      return;
+    }
+
     const controller = navigator.serviceWorker.controller;
-    let needsCleanup = false;
+    let needsUpdate = false;
 
     if (controller) {
       const isVersionMatch = await checkServiceWorkerVersion(
         controller,
         EXPECTED_SW_VERSION
       );
-      needsCleanup = !isVersionMatch;
+      needsUpdate = !isVersionMatch;
     } else {
-      needsCleanup = true;
+      // コントローラーがない場合は新規登録
+      needsUpdate = false;
     }
 
-    if (needsCleanup) {
-      // スマホでの問題を解決するために強制更新を使用
-      await forceServiceWorkerUpdate();
-      return;
+    if (needsUpdate) {
+      // バージョンが古い場合のみ再登録（リロードなし）
+      await reregisterServiceWorker();
+    } else {
+      // 通常登録
+      const wb = new Workbox('/sw-v2.js');
+      await setupServiceWorker(wb);
     }
 
-    const wb = new Workbox('/sw-v2.js');
-    await setupServiceWorker(wb);
+    // バージョンチェック完了を記録
+    sessionStorage.setItem(versionCheckKey, EXPECTED_SW_VERSION);
   } catch {
-    // 最後の手段として強制更新
-    await forceServiceWorkerUpdate();
+    // エラーが発生してもリロードしない
   }
 };
 

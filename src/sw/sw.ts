@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 // Service Worker Version - Update this to force cache invalidation
-const SW_VERSION = '2025-08-17-v4-FIREFOX-FIX';
+const SW_VERSION = '2025-08-17-v5-NO-RELOAD';
 
 import {
   cleanupOutdatedCaches,
