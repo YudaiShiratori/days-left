@@ -14,10 +14,10 @@ describe('Meta Information and SEO', () => {
     // OpenGraphの設定確認
     const expectedOGTitle = 'あと何日';
     const expectedDescription =
-      'あなたの人生の残り日数を表示し、毎日を大切に過ごすためのモチベーションアプリ';
+      'あなたの残り時間を見える化し、毎日を大切にする意識を育てるアプリです。';
 
     expect(expectedOGTitle).toBe('あと何日');
-    expect(expectedDescription).toContain('人生の残り日数');
+    expect(expectedDescription).toContain('残り時間を見える化');
   });
 
   it('should have correct Twitter Card metadata', () => {

@@ -1043,9 +1043,9 @@ export default function Home() {
     <main className="mx-auto max-w-4xl px-4 py-8 md:py-12">
       <div className="mb-8 text-center">
         <p className="text-base text-gray-700 md:text-lg">
-          あなたが毎日を大切に過ごすために
+          あなたの残り時間を見える化し
           <br />
-          意識づけするためのアプリです
+          毎日を大切にする意識を育てるアプリです
         </p>
       </div>
 

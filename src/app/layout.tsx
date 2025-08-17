@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://jinsei-nokori-jikan.vercel.app'),
   title: '人生の残り時間',
   description:
-    'あなたの人生の残り日数を表示し、毎日を大切に過ごすためのモチベーションアプリ',
+    'あなたの残り時間を見える化し、毎日を大切にする意識を育てるアプリです。',
   icons: [
     { rel: 'icon', url: '/favicon.ico', sizes: '32x32' },
     { rel: 'icon', url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: '人生の残り時間',
     description:
-      'あなたの人生の残り日数を表示し、毎日を大切に過ごすためのモチベーションアプリ',
+      'あなたの残り時間を見える化し、毎日を大切にする意識を育てるアプリです。',
     images: [
       {
         url: '/icon-512.png',
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     card: 'summary',
     title: '人生の残り時間',
     description:
-      'あなたの人生の残り日数を表示し、毎日を大切に過ごすためのモチベーションアプリ',
+      'あなたの残り時間を見える化し、毎日を大切にする意識を育てるアプリです。',
     images: ['/icon-512.png'],
   },
   manifest: '/manifest.json',

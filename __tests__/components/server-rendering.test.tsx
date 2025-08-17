@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import Home from '~/app/page';
 
 // Top-level regex constants for performance
-const MOTIVATION_TEXT_REGEX = /毎日を大切に過ごすために/;
+const MOTIVATION_TEXT_REGEX = /あなたの残り時間を見える化し/;
 
 describe('Server Side Rendering', () => {
   it('should render meaningful content without JavaScript', () => {

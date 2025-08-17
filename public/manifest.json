@@ -1,7 +1,7 @@
 {
   "name": "人生の残り時間",
   "short_name": "人生の残り時間",
-  "description": "人生の残り時間を表示するシンプルなモチベーションアプリ",
+  "description": "あなたの残り時間を見える化し、毎日を大切にする意識を育てるアプリです。",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
