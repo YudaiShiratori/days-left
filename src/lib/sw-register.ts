@@ -1,4 +1,5 @@
 import { Workbox } from 'workbox-window';
+import { handleServiceWorkerError, handleAsyncError } from './error-handler';
 
 // PWA インストールプロンプトの型定義
 interface BeforeInstallPromptEvent extends Event {
@@ -37,7 +38,7 @@ const checkServiceWorkerVersion = async (
   }
 };
 
-// Service Workerクリーンアップ（リロードなし）
+// ユーザーデータを保護するキャッシュクリーンアップ（リロードなし）
 const cleanupServiceWorkers = async (): Promise<void> => {
   try {
     const registrations = await navigator.serviceWorker.getRegistrations();
@@ -53,8 +54,24 @@ const cleanupServiceWorkers = async (): Promise<void> => {
 
     if ('caches' in window) {
       const cacheNames = await caches.keys();
+      
+      // ユーザーデータキャッシュは保護する
+      const protectedCachePatterns = [
+        'user-data',
+        'settings',
+        'daysLeftSettings',
+        'localStorage-backup'
+      ];
+      
+      const cachesToDelete = cacheNames.filter(cacheName => {
+        // ユーザーデータに関連するキャッシュは削除しない
+        return !protectedCachePatterns.some(pattern => 
+          cacheName.toLowerCase().includes(pattern.toLowerCase())
+        );
+      });
+      
       await Promise.all(
-        cacheNames.map(async (cacheName) => {
+        cachesToDelete.map(async (cacheName) => {
           try {
             await caches.delete(cacheName);
           } catch {
@@ -157,7 +174,7 @@ export const registerServiceWorker = async (): Promise<void> => {
     return;
   }
 
-  try {
+  await handleAsyncError(async () => {
     const EXPECTED_SW_VERSION = '2025-08-17-v5-NO-RELOAD';
 
     // 既にバージョンチェック済みか確認（セッションストレージで管理）
@@ -196,9 +213,7 @@ export const registerServiceWorker = async (): Promise<void> => {
 
     // バージョンチェック完了を記録
     sessionStorage.setItem(versionCheckKey, EXPECTED_SW_VERSION);
-  } catch {
-    // エラーが発生してもリロードしない
-  }
+  }, 'ServiceWorker', 'registerServiceWorker');
 };
 
 // PWAインストールプロンプト管理
@@ -281,11 +296,26 @@ const unregisterAllServiceWorkers = async (): Promise<void> => {
   }
 };
 
-// 全キャッシュ削除
+// 全キャッシュ削除（ユーザーデータ保護版）
 const deleteAllCaches = async (): Promise<void> => {
   const cacheNames = await caches.keys();
+  
+  // ユーザーデータキャッシュは保護する
+  const protectedCachePatterns = [
+    'user-data',
+    'settings', 
+    'daysLeftSettings',
+    'localStorage-backup'
+  ];
+  
+  const cachesToDelete = cacheNames.filter(cacheName => {
+    return !protectedCachePatterns.some(pattern => 
+      cacheName.toLowerCase().includes(pattern.toLowerCase())
+    );
+  });
+  
   await Promise.all(
-    cacheNames.map(async (cacheName) => {
+    cachesToDelete.map(async (cacheName) => {
       try {
         await caches.delete(cacheName);
       } catch (_error) {
@@ -295,11 +325,20 @@ const deleteAllCaches = async (): Promise<void> => {
   );
 };
 
-// PWA関連のlocalStorage項目クリア
+// PWA関連のlocalStorage項目クリア（ユーザーデータ保護版）
 const clearLocalStorageItems = (): void => {
   try {
     if ('localStorage' in window) {
+      // ユーザー設定データは保護する
+      const protectedKeys = ['daysLeftSettings'];
+      
       for (const key of Object.keys(localStorage)) {
+        // ユーザーデータキーは削除しない
+        if (protectedKeys.includes(key)) {
+          continue;
+        }
+        
+        // PWA関連のキーのみ削除
         if (key.startsWith('workbox-') || key.startsWith('pwa-')) {
           localStorage.removeItem(key);
         }

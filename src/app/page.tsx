@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { InstallPwaButton } from '~/components/install-pwa-button';
+import { handleDataError, handleAsyncError } from '~/lib/error-handler';
 
 interface TargetDate {
   id: string;
@@ -186,12 +187,12 @@ function createDefaultSettings(): UserSettings {
 }
 
 function loadSettingsFromStorage(): UserSettings | null {
-  const savedSettings = localStorage.getItem('daysLeftSettings');
-  if (!savedSettings) {
-    return null;
-  }
-
   try {
+    const savedSettings = localStorage.getItem('daysLeftSettings');
+    if (!savedSettings) {
+      return null;
+    }
+
     const parsed = JSON.parse(savedSettings);
     const convertedSettings = convertLegacySettings(parsed);
 
@@ -204,14 +205,30 @@ function loadSettingsFromStorage(): UserSettings | null {
     }
     localStorage.removeItem('daysLeftSettings');
     return null;
-  } catch (_e) {
-    localStorage.removeItem('daysLeftSettings');
+  } catch (error) {
+    handleDataError(
+      error instanceof Error ? error : new Error('Failed to load settings'),
+      'loadSettingsFromStorage'
+    );
+    try {
+      localStorage.removeItem('daysLeftSettings');
+    } catch {
+      // If removal fails, there's nothing more we can do
+    }
     return null;
   }
 }
 
 function saveSettingsToStorage(settings: UserSettings): void {
-  localStorage.setItem('daysLeftSettings', JSON.stringify(settings));
+  try {
+    localStorage.setItem('daysLeftSettings', JSON.stringify(settings));
+  } catch (error) {
+    handleDataError(
+      error instanceof Error ? error : new Error('Failed to save settings'),
+      'saveSettingsToStorage'
+    );
+    throw error; // Re-throw so caller knows save failed
+  }
 }
 
 // Validation utilities
@@ -323,16 +340,15 @@ function TargetCard({
               {(daysLeft ?? 0) < 0 ? '経過' : 'あと'}
             </span>
           </div>
-          <div
+          <output
             aria-label={`残り${daysLeft !== undefined ? Math.abs(daysLeft).toLocaleString() : '計算中'}日`}
             aria-live="polite"
             className="font-black text-6xl text-white tabular-nums sm:text-7xl md:text-8xl lg:text-9xl"
-            role="status"
           >
             {daysLeft !== undefined
               ? Math.abs(daysLeft).toLocaleString()
               : '---'}
-          </div>
+          </output>
           <div
             className={`mt-4 text-3xl ${colors.text} md:text-4xl lg:text-5xl`}
           >
@@ -358,14 +374,13 @@ function LifeDaysCard({ daysLeft }: { daysLeft: number | null }) {
           <div className="mb-4">
             <span className="text-2xl text-slate-300 md:text-3xl">あと</span>
           </div>
-          <div
+          <output
             aria-label={`人生の残り${daysLeft !== null ? daysLeft.toLocaleString() : '計算中'}日`}
             aria-live="polite"
             className="font-black text-6xl text-white tabular-nums sm:text-7xl md:text-8xl lg:text-9xl"
-            role="status"
           >
             {daysLeft !== null ? daysLeft.toLocaleString() : '---'}
-          </div>
+          </output>
           <div className="mt-4 text-3xl text-slate-300 md:text-4xl lg:text-5xl">
             日
           </div>
@@ -621,13 +636,17 @@ function SettingsForm({
         }}
       >
         <div className="mb-8 space-y-6">
-          <div>
-            <label className="mb-3 block font-medium text-gray-700 text-sm">
+          <fieldset>
+            <legend className="mb-3 block font-medium text-gray-700 text-sm">
               生年月日
-            </label>
+            </legend>
             <div className="grid grid-cols-3 gap-2 md:gap-3">
               <div>
+                <label htmlFor="birth-year" className="sr-only">
+                  生年
+                </label>
                 <select
+                  id="birth-year"
                   aria-label="生年"
                   className="w-full rounded-lg border-2 border-gray-300 px-2 py-3 text-center font-medium text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 md:px-3 md:text-lg"
                   onChange={(e) => setTempYear(e.target.value)}
@@ -642,7 +661,11 @@ function SettingsForm({
                 </select>
               </div>
               <div>
+                <label htmlFor="birth-month" className="sr-only">
+                  生月
+                </label>
                 <select
+                  id="birth-month"
                   aria-label="生月"
                   className="w-full rounded-lg border-2 border-gray-300 px-2 py-3 text-center font-medium text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 md:px-3 md:text-lg"
                   onChange={(e) => setTempMonth(e.target.value)}
@@ -657,7 +680,11 @@ function SettingsForm({
                 </select>
               </div>
               <div>
+                <label htmlFor="birth-day" className="sr-only">
+                  生日
+                </label>
                 <select
+                  id="birth-day"
                   aria-label="生日"
                   className="w-full rounded-lg border-2 border-gray-300 px-2 py-3 text-center font-medium text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 md:px-3 md:text-lg"
                   onChange={(e) => setTempDay(e.target.value)}
@@ -677,13 +704,14 @@ function SettingsForm({
                 {errors.birthDate}
               </p>
             )}
-          </div>
+          </fieldset>
 
           <div>
-            <label className="mb-3 block font-medium text-gray-700 text-sm">
+            <label htmlFor="gender-select" className="mb-3 block font-medium text-gray-700 text-sm">
               性別
             </label>
             <select
+              id="gender-select"
               aria-label="性別"
               className="w-full rounded-lg border-2 border-gray-300 px-3 py-3 font-medium text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 md:text-lg"
               onChange={(e) =>
@@ -697,11 +725,11 @@ function SettingsForm({
           </div>
         </div>
 
-        <div className="mb-8">
+        <fieldset className="mb-8">
           <div className="mb-4 flex items-center justify-between">
-            <label className="font-medium text-gray-700 text-sm">
+            <legend className="font-medium text-gray-700 text-sm">
               目標日（任意）
-            </label>
+            </legend>
             <button
               aria-label="新しい目標日を追加"
               className="rounded-lg bg-green-600 px-3 py-2 font-medium text-sm text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
@@ -719,7 +747,7 @@ function SettingsForm({
                 key={target.id}
               >
                 <div className="mb-3 flex items-center justify-between">
-                  <label className="font-medium text-gray-700 text-sm">
+                  <label htmlFor={`target-label-${target.id}`} className="font-medium text-gray-700 text-sm">
                     目標名
                   </label>
                   <button
@@ -732,6 +760,7 @@ function SettingsForm({
                   </button>
                 </div>
                 <input
+                  id={`target-label-${target.id}`}
                   aria-label="目標名"
                   className="mb-3 w-full rounded-lg border-2 border-gray-300 px-3 py-2 text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   onChange={(e) =>
@@ -742,18 +771,24 @@ function SettingsForm({
                   value={target.label}
                 />
 
-                <label className="mb-3 block font-medium text-gray-700 text-sm">
-                  目標日
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  <select
-                    aria-label="目標年"
-                    className="w-full rounded-lg border-2 border-gray-300 px-2 py-2 text-center text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    onChange={(e) =>
-                      updateTarget(target.id, 'year', e.target.value)
-                    }
-                    value={target.year}
-                  >
+                <fieldset>
+                  <legend className="mb-3 block font-medium text-gray-700 text-sm">
+                    目標日
+                  </legend>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label htmlFor={`target-year-${target.id}`} className="sr-only">
+                        目標年
+                      </label>
+                      <select
+                        id={`target-year-${target.id}`}
+                        aria-label="目標年"
+                        className="w-full rounded-lg border-2 border-gray-300 px-2 py-2 text-center text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onChange={(e) =>
+                          updateTarget(target.id, 'year', e.target.value)
+                        }
+                        value={target.year}
+                      >
                     <option value="">年</option>
                     {futureYears.map((year) => (
                       <option key={year} value={year}>
@@ -761,37 +796,51 @@ function SettingsForm({
                       </option>
                     ))}
                   </select>
-                  <select
-                    aria-label="目標月"
-                    className="w-full rounded-lg border-2 border-gray-300 px-2 py-2 text-center text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    onChange={(e) =>
-                      updateTarget(target.id, 'month', e.target.value)
-                    }
-                    value={target.month}
-                  >
+                    </div>
+                    <div>
+                      <label htmlFor={`target-month-${target.id}`} className="sr-only">
+                        目標月
+                      </label>
+                      <select
+                        id={`target-month-${target.id}`}
+                        aria-label="目標月"
+                        className="w-full rounded-lg border-2 border-gray-300 px-2 py-2 text-center text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onChange={(e) =>
+                          updateTarget(target.id, 'month', e.target.value)
+                        }
+                        value={target.month}
+                      >
                     <option value="">月</option>
                     {months.map((month) => (
                       <option key={month} value={month}>
                         {month}
                       </option>
                     ))}
-                  </select>
-                  <select
-                    aria-label="目標日"
-                    className="w-full rounded-lg border-2 border-gray-300 px-2 py-2 text-center text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    onChange={(e) =>
-                      updateTarget(target.id, 'day', e.target.value)
-                    }
-                    value={target.day}
-                  >
-                    <option value="">日</option>
-                    {days.map((day) => (
-                      <option key={day} value={day}>
-                        {day}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor={`target-day-${target.id}`} className="sr-only">
+                        目標日
+                      </label>
+                      <select
+                        id={`target-day-${target.id}`}
+                        aria-label="目標日"
+                        className="w-full rounded-lg border-2 border-gray-300 px-2 py-2 text-center text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onChange={(e) =>
+                          updateTarget(target.id, 'day', e.target.value)
+                        }
+                        value={target.day}
+                      >
+                        <option value="">日</option>
+                        {days.map((day) => (
+                          <option key={day} value={day}>
+                            {day}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </fieldset>
                 {errors.targets?.[target.id] && (
                   <p className="mt-2 text-red-600 text-sm" role="alert">
                     {errors.targets[target.id]}
@@ -800,7 +849,7 @@ function SettingsForm({
               </div>
             ))}
           </div>
-        </div>
+        </fieldset>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
           <button
@@ -946,10 +995,18 @@ export default function Home() {
         targets: validTargets,
       };
 
-      saveSettingsToStorage(newSettings);
-      setSettings(newSettings);
-      setIsEditing(false);
-      setErrors({});
+      try {
+        saveSettingsToStorage(newSettings);
+        setSettings(newSettings);
+        setIsEditing(false);
+        setErrors({});
+      } catch (error) {
+        // Show error to user if save fails
+        setErrors({
+          ...newErrors,
+          birthDate: '設定の保存に失敗しました。もう一度お試しください。'
+        });
+      }
     }
   };
 
