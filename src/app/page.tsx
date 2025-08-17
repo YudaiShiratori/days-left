@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { InstallPwaButton } from '~/components/install-pwa-button';
-import { handleDataError, handleAsyncError } from '~/lib/error-handler';
+import { handleDataError } from '~/lib/error-handler';
 
 interface TargetDate {
   id: string;
@@ -324,7 +324,7 @@ function TargetCard({
     { bg: 'bg-cyan-500', text: 'text-cyan-50' },
   ];
 
-  const colors = cardColors[colorIndex % cardColors.length]!;
+  const colors = cardColors[colorIndex % cardColors.length] ?? cardColors[0];
 
   return (
     <div className="mb-8">
@@ -642,13 +642,13 @@ function SettingsForm({
             </legend>
             <div className="grid grid-cols-3 gap-2 md:gap-3">
               <div>
-                <label htmlFor="birth-year" className="sr-only">
+                <label className="sr-only" htmlFor="birth-year">
                   生年
                 </label>
                 <select
-                  id="birth-year"
                   aria-label="生年"
                   className="w-full rounded-lg border-2 border-gray-300 px-2 py-3 text-center font-medium text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 md:px-3 md:text-lg"
+                  id="birth-year"
                   onChange={(e) => setTempYear(e.target.value)}
                   value={tempYear}
                 >
@@ -661,13 +661,13 @@ function SettingsForm({
                 </select>
               </div>
               <div>
-                <label htmlFor="birth-month" className="sr-only">
+                <label className="sr-only" htmlFor="birth-month">
                   生月
                 </label>
                 <select
-                  id="birth-month"
                   aria-label="生月"
                   className="w-full rounded-lg border-2 border-gray-300 px-2 py-3 text-center font-medium text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 md:px-3 md:text-lg"
+                  id="birth-month"
                   onChange={(e) => setTempMonth(e.target.value)}
                   value={tempMonth}
                 >
@@ -680,13 +680,13 @@ function SettingsForm({
                 </select>
               </div>
               <div>
-                <label htmlFor="birth-day" className="sr-only">
+                <label className="sr-only" htmlFor="birth-day">
                   生日
                 </label>
                 <select
-                  id="birth-day"
                   aria-label="生日"
                   className="w-full rounded-lg border-2 border-gray-300 px-2 py-3 text-center font-medium text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 md:px-3 md:text-lg"
+                  id="birth-day"
                   onChange={(e) => setTempDay(e.target.value)}
                   value={tempDay}
                 >
@@ -707,13 +707,16 @@ function SettingsForm({
           </fieldset>
 
           <div>
-            <label htmlFor="gender-select" className="mb-3 block font-medium text-gray-700 text-sm">
+            <label
+              className="mb-3 block font-medium text-gray-700 text-sm"
+              htmlFor="gender-select"
+            >
               性別
             </label>
             <select
-              id="gender-select"
               aria-label="性別"
               className="w-full rounded-lg border-2 border-gray-300 px-3 py-3 font-medium text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 md:text-lg"
+              id="gender-select"
               onChange={(e) =>
                 setTempGender(e.target.value as 'male' | 'female')
               }
@@ -747,7 +750,10 @@ function SettingsForm({
                 key={target.id}
               >
                 <div className="mb-3 flex items-center justify-between">
-                  <label htmlFor={`target-label-${target.id}`} className="font-medium text-gray-700 text-sm">
+                  <label
+                    className="font-medium text-gray-700 text-sm"
+                    htmlFor={`target-label-${target.id}`}
+                  >
                     目標名
                   </label>
                   <button
@@ -760,9 +766,9 @@ function SettingsForm({
                   </button>
                 </div>
                 <input
-                  id={`target-label-${target.id}`}
                   aria-label="目標名"
                   className="mb-3 w-full rounded-lg border-2 border-gray-300 px-3 py-2 text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  id={`target-label-${target.id}`}
                   onChange={(e) =>
                     updateTarget(target.id, 'label', e.target.value)
                   }
@@ -777,55 +783,64 @@ function SettingsForm({
                   </legend>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <label htmlFor={`target-year-${target.id}`} className="sr-only">
+                      <label
+                        className="sr-only"
+                        htmlFor={`target-year-${target.id}`}
+                      >
                         目標年
                       </label>
                       <select
-                        id={`target-year-${target.id}`}
                         aria-label="目標年"
                         className="w-full rounded-lg border-2 border-gray-300 px-2 py-2 text-center text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        id={`target-year-${target.id}`}
                         onChange={(e) =>
                           updateTarget(target.id, 'year', e.target.value)
                         }
                         value={target.year}
                       >
-                    <option value="">年</option>
-                    {futureYears.map((year) => (
-                      <option key={year} value={year}>
-                        {year}
-                      </option>
-                    ))}
-                  </select>
+                        <option value="">年</option>
+                        {futureYears.map((year) => (
+                          <option key={year} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div>
-                      <label htmlFor={`target-month-${target.id}`} className="sr-only">
+                      <label
+                        className="sr-only"
+                        htmlFor={`target-month-${target.id}`}
+                      >
                         目標月
                       </label>
                       <select
-                        id={`target-month-${target.id}`}
                         aria-label="目標月"
                         className="w-full rounded-lg border-2 border-gray-300 px-2 py-2 text-center text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        id={`target-month-${target.id}`}
                         onChange={(e) =>
                           updateTarget(target.id, 'month', e.target.value)
                         }
                         value={target.month}
                       >
-                    <option value="">月</option>
-                    {months.map((month) => (
-                      <option key={month} value={month}>
-                        {month}
-                      </option>
-                    ))}
+                        <option value="">月</option>
+                        {months.map((month) => (
+                          <option key={month} value={month}>
+                            {month}
+                          </option>
+                        ))}
                       </select>
                     </div>
                     <div>
-                      <label htmlFor={`target-day-${target.id}`} className="sr-only">
+                      <label
+                        className="sr-only"
+                        htmlFor={`target-day-${target.id}`}
+                      >
                         目標日
                       </label>
                       <select
-                        id={`target-day-${target.id}`}
                         aria-label="目標日"
                         className="w-full rounded-lg border-2 border-gray-300 px-2 py-2 text-center text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        id={`target-day-${target.id}`}
                         onChange={(e) =>
                           updateTarget(target.id, 'day', e.target.value)
                         }
@@ -1000,11 +1015,11 @@ export default function Home() {
         setSettings(newSettings);
         setIsEditing(false);
         setErrors({});
-      } catch (error) {
+      } catch (_error) {
         // Show error to user if save fails
         setErrors({
           ...newErrors,
-          birthDate: '設定の保存に失敗しました。もう一度お試しください。'
+          birthDate: '設定の保存に失敗しました。もう一度お試しください。',
         });
       }
     }

@@ -2,13 +2,16 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import Home from '~/app/page';
 
+// Top-level regex constants for performance
+const MOTIVATION_TEXT_REGEX = /毎日を大切に過ごすために/;
+
 describe('Server Side Rendering', () => {
   it('should render meaningful content without JavaScript', () => {
     // Server Component として意味のあるコンテンツが表示される
     render(<Home />);
 
     // 基本的な説明文が表示される
-    expect(screen.getByText(/毎日を大切に過ごすために/)).toBeInTheDocument();
+    expect(screen.getByText(MOTIVATION_TEXT_REGEX)).toBeInTheDocument();
 
     // デフォルトのコンテンツが表示される
     expect(screen.getByText('今年の終わりまで')).toBeInTheDocument();
@@ -38,8 +41,8 @@ describe('Server Side Rendering', () => {
 
     // aria-live属性が設定される
     const statusElements = screen.getAllByRole('status');
-    statusElements.forEach((element) => {
+    for (const element of statusElements) {
       expect(element).toHaveAttribute('aria-live', 'polite');
-    });
+    }
   });
 });

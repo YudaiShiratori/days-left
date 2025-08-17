@@ -19,71 +19,84 @@ interface ErrorLog {
 // Error severity classification
 export const getErrorSeverity = (error: Error): ErrorLog['severity'] => {
   const message = error.message.toLowerCase();
-  
+
   // Critical errors that affect core functionality
-  if (message.includes('localstorage') || 
-      message.includes('data') || 
-      message.includes('service worker')) {
+  if (
+    message.includes('localstorage') ||
+    message.includes('data') ||
+    message.includes('service worker')
+  ) {
     return 'critical';
   }
-  
+
   // High severity errors that affect user experience
-  if (message.includes('network') || 
-      message.includes('fetch') || 
-      message.includes('load')) {
+  if (
+    message.includes('network') ||
+    message.includes('fetch') ||
+    message.includes('load')
+  ) {
     return 'high';
   }
-  
+
   // Medium severity errors
-  if (message.includes('validation') || 
-      message.includes('format')) {
+  if (message.includes('validation') || message.includes('format')) {
     return 'medium';
   }
-  
+
   return 'low';
 };
 
 // Create error context
-const createErrorContext = (component?: string, action?: string): ErrorContext => ({
+const createErrorContext = (
+  component?: string,
+  action?: string
+): ErrorContext => ({
   component,
   action,
   timestamp: Date.now(),
   userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
-  url: typeof window !== 'undefined' ? window.location.href : 'unknown'
+  url: typeof window !== 'undefined' ? window.location.href : 'unknown',
 });
 
 // Log error to console and potentially external service
 const logError = (errorLog: ErrorLog): void => {
   // Always log to console in development
-  if (process.env.NODE_ENV === 'development') {
-    console.group(`🚨 Error [${errorLog.severity.toUpperCase()}]`);
-    console.error('Message:', errorLog.message);
-    console.error('Context:', errorLog.context);
-    if (errorLog.stack) {
-      console.error('Stack:', errorLog.stack);
-    }
-    console.groupEnd();
+  if (process.env.NODE_ENV === 'development' && errorLog.stack) {
+    // biome-ignore lint/suspicious/noConsole: Console logging is needed for development debugging
+    console.error(
+      'Error:',
+      errorLog.message,
+      '\nStack:',
+      errorLog.stack,
+      '\nContext:',
+      errorLog.context
+    );
   }
-  
+
   // In production, log to external service (placeholder for future implementation)
-  if (process.env.NODE_ENV === 'production' && errorLog.severity === 'critical') {
+  if (
+    process.env.NODE_ENV === 'production' &&
+    errorLog.severity === 'critical'
+  ) {
     // TODO: Send to error monitoring service (Sentry, LogRocket, etc.)
     // This is where you would integrate with your error reporting service
     try {
       // Example: Sentry.captureException(error, { extra: errorLog.context });
       // For now, we'll store in localStorage as fallback
-      const existingErrors = JSON.parse(localStorage.getItem('error-logs') || '[]');
+      const existingErrors = JSON.parse(
+        localStorage.getItem('error-logs') || '[]'
+      );
       existingErrors.push({
         ...errorLog,
         // Truncate to prevent localStorage overflow
-        stack: errorLog.stack?.substring(0, 1000)
+        stack: errorLog.stack?.substring(0, 1000),
       });
-      
+
       // Keep only last 10 errors
       if (existingErrors.length > 10) {
         existingErrors.splice(0, existingErrors.length - 10);
       }
-      
+
       localStorage.setItem('error-logs', JSON.stringify(existingErrors));
     } catch {
       // If localStorage fails, there's not much we can do
@@ -100,16 +113,16 @@ export const handleError = (
 ): void => {
   const context = createErrorContext(component, action);
   const severity = getErrorSeverity(error);
-  
+
   const errorLog: ErrorLog = {
     message: error.message,
     stack: error.stack,
     context,
-    severity
+    severity,
   };
-  
+
   logError(errorLog);
-  
+
   // Show user-friendly message for critical errors
   if (showToUser && severity === 'critical') {
     showUserErrorMessage(error.message);
@@ -136,10 +149,10 @@ const showUserErrorMessage = (message: string): void => {
       font-size: 14px;
       line-height: 1.4;
     `;
-    
+
     errorToast.textContent = `エラーが発生しました: ${message}`;
     document.body.appendChild(errorToast);
-    
+
     // Auto-remove after 5 seconds
     setTimeout(() => {
       if (errorToast.parentNode) {
@@ -175,21 +188,11 @@ export const handleServiceWorkerError = (
   action: string
 ): void => {
   handleError(error, 'ServiceWorker', action, false);
-  
-  // For service worker errors, we don't want to show intrusive messages
-  // but we should log them for debugging
-  console.warn('Service Worker error (non-critical):', error.message);
 };
 
 // Critical data error handler (for localStorage, user data, etc.)
-export const handleDataError = (
-  error: Error,
-  action: string
-): void => {
+export const handleDataError = (error: Error, action: string): void => {
   handleError(error, 'DataManager', action, true);
-  
-  // For data errors, we should always notify the user
-  console.error('Critical data error:', error.message);
 };
 
 // Error boundary helper for React components

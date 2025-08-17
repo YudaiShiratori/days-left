@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 // 日付計算のユーティリティ関数（実装予定）
 function calculateLifeExpectancy(
-  birthYear: number,
+  _birthYear: number,
   gender: 'male' | 'female'
 ): number {
   const baseMaleLifeExpectancy = 81.09;
@@ -84,7 +84,7 @@ describe('Date Calculation Reliability', () => {
     it('should handle non-leap year February correctly', () => {
       // 平年のテスト（2023年は平年）
       const target = new Date(2023, 1, 28); // 2023年2月28日
-      const isValid = !isNaN(target.getTime());
+      const isValid = !Number.isNaN(target.getTime());
 
       expect(isValid).toBe(true);
     });
