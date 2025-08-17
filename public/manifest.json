@@ -1,6 +1,6 @@
 {
-  "name": "あと何日",
-  "short_name": "あと何日",
+  "name": "人生の残り時間",
+  "short_name": "人生の残り時間",
   "description": "人生の残り時間を表示するシンプルなモチベーションアプリ",
   "start_url": "/",
   "display": "standalone",
