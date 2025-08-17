@@ -64,8 +64,7 @@ describe('Settings UI Simplification', () => {
     fireEvent.click(settingsButton);
 
     // 簡素化された設定フォームが表示される
-    // （現在は仮実装のため詳細は後で実装）
-    expect(screen.getByText('設定画面（実装予定）')).toBeInTheDocument();
+    expect(screen.getByText('あなたの情報を入力')).toBeInTheDocument();
   });
 
   it('should focus on essential settings: birth date, life expectancy, display unit', () => {

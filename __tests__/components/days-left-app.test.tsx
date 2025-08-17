@@ -82,8 +82,8 @@ describe('Days Left App', () => {
     const settingsButton = screen.getByText('設定を変更');
     fireEvent.click(settingsButton);
 
-    // 現在は仮実装のため、設定画面（実装予定）が表示される
-    expect(screen.getByText('設定画面（実装予定）')).toBeInTheDocument();
+    // 設定フォームが表示される
+    expect(screen.getByText('あなたの情報を入力')).toBeInTheDocument();
 
     // localStorage の setItem が呼ばれることを確認（デフォルト設定の保存）
     expect(localStorageMock.setItem).toHaveBeenCalled();
@@ -129,9 +129,9 @@ describe('Days Left App', () => {
     const settingsButton = screen.getByText('設定を変更');
     fireEvent.click(settingsButton);
 
-    // 現在は仮実装のため、設定画面（実装予定）が表示される
-    expect(screen.getByText('設定画面（実装予定）')).toBeInTheDocument();
-    expect(screen.getByText('戻る')).toBeInTheDocument();
+    // 設定フォームが表示される
+    expect(screen.getByText('あなたの情報を入力')).toBeInTheDocument();
+    expect(screen.getByText('キャンセル')).toBeInTheDocument();
   });
 
   it('編集モードで戻るボタンが表示される', () => {
@@ -141,9 +141,9 @@ describe('Days Left App', () => {
     const settingsButton = screen.getByText('設定を変更');
     fireEvent.click(settingsButton);
 
-    // 現在は仮実装のため、戻るボタンが表示される
-    const backButton = screen.getByText('戻る');
-    expect(backButton).toBeInTheDocument();
+    // キャンセルボタンが表示される
+    const cancelButton = screen.getByText('キャンセル');
+    expect(cancelButton).toBeInTheDocument();
   });
 
   it('編集モードで戻る機能が動作する', () => {
@@ -153,12 +153,12 @@ describe('Days Left App', () => {
     const settingsButton = screen.getByText('設定を変更');
     fireEvent.click(settingsButton);
 
-    // 戻るボタンをクリック
-    const backButton = screen.getByText('戻る');
-    fireEvent.click(backButton);
+    // キャンセルボタンをクリック
+    const cancelButton = screen.getByText('キャンセル');
+    fireEvent.click(cancelButton);
 
     // 元の画面に戻る
     expect(screen.getByText('設定を変更')).toBeInTheDocument();
-    expect(screen.queryByText('設定画面（実装予定）')).not.toBeInTheDocument();
+    expect(screen.queryByText('あなたの情報を入力')).not.toBeInTheDocument();
   });
 });
