@@ -324,7 +324,7 @@ function TargetCard({
     { bg: 'bg-cyan-500', text: 'text-cyan-50' },
   ];
 
-  const colors = cardColors[colorIndex % cardColors.length] ?? cardColors[0];
+  const colors = cardColors[colorIndex % cardColors.length] || cardColors[0];
 
   return (
     <div className="mb-8">

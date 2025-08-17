@@ -3,8 +3,10 @@ import '~/styles/globals.css';
 import type { Metadata } from 'next';
 import { Noto_Sans_JP } from 'next/font/google';
 import Image from 'next/image';
+import Script from 'next/script';
 import { ServiceWorkerProvider } from '~/components/service-worker-provider';
 import { TRPCReactProvider } from '~/trpc/react';
+import GaPageView from './ga-pageview';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://jinsei-nokori-jikan.vercel.app'),
@@ -68,8 +70,25 @@ export default function RootLayout({
   return (
     <html className={`${notoSansJP.variable}`} lang="ja">
       <body>
+        {/* Google Analytics 4 */}
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}', {
+              send_page_view: false
+            });
+          `}
+        </Script>
+
         <TRPCReactProvider>
           <ServiceWorkerProvider />
+          <GaPageView />
           <div className="min-h-screen bg-slate-100">
             <header className="sticky top-0 z-10 bg-white shadow-sm">
               <div className="mx-auto max-w-4xl px-4">
