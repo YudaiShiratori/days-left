@@ -7,8 +7,8 @@ import { ServiceWorkerProvider } from '~/components/service-worker-provider';
 import { TRPCReactProvider } from '~/trpc/react';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://days-left.example.com'), // 本番環境のURLに置き換えてください
-  title: 'Days Left - 人生の残り日数',
+  metadataBase: new URL('https://jinsei-nokori-jikan.vercel.app'),
+  title: 'あと何日',
   description:
     'あなたの人生の残り日数を表示し、毎日を大切に過ごすためのモチベーションアプリ',
   icons: [
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     { rel: 'apple-touch-icon', url: '/icon-512.png', sizes: '512x512' },
   ],
   openGraph: {
-    title: 'Days Left - 人生の残り日数',
+    title: 'あと何日',
     description:
       'あなたの人生の残り日数を表示し、毎日を大切に過ごすためのモチベーションアプリ',
     images: [
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary',
-    title: 'Days Left - 人生の残り日数',
+    title: 'あと何日',
     description:
       'あなたの人生の残り日数を表示し、毎日を大切に過ごすためのモチベーションアプリ',
     images: ['/icon-512.png'],
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Days Left',
+    title: 'あと何日',
   },
 };
 
@@ -83,7 +83,7 @@ export default function RootLayout({
                   />
                   <div className="text-center">
                     <h1 className="font-bold text-gray-900 text-xl md:text-2xl">
-                      人生の残り時間
+                      あと何日
                     </h1>
                   </div>
                 </div>

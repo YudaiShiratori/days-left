@@ -1,6 +1,17 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* アクセシビリティ: prefers-reduced-motion対応 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme {
@@ -314,4 +325,155 @@
   height: 12px;
   border-radius: 6px;
   background: linear-gradient(90deg, #10b981 0%, #f59e0b 50%, #ef4444 100%);
+}
+
+/* Enhanced Accessibility Styles */
+
+/* Focus ring improvements for blue theme consistency */
+.focus\:ring-blue-500:focus {
+  box-shadow: 0 0 0 2px #1d4ed8;
+}
+
+.focus\:ring-blue-600:focus {
+  box-shadow: 0 0 0 2px #1e40af;
+}
+
+/* Enhanced touch targets for mobile accessibility */
+.btn-touch-target {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* High contrast improvements */
+@media (prefers-contrast: high) {
+  .text-blue-300 {
+    color: #93c5fd;
+  }
+  .text-blue-600 {
+    color: #1d4ed8;
+  }
+  .text-slate-300 {
+    color: #cbd5e1;
+  }
+  .bg-blue-600 {
+    background-color: #1d4ed8;
+  }
+  .bg-blue-700:hover {
+    background-color: #1e40af;
+  }
+}
+
+/* Reduced motion enhancements */
+@media (prefers-reduced-motion: reduce) {
+  .transition-colors,
+  .transition-all,
+  .duration-150,
+  .duration-200 {
+    transition: none;
+  }
+  
+  .hover\:scale-105:hover,
+  .hover\:scale-110:hover {
+    transform: none;
+  }
+  
+  .animate-pulse {
+    animation: none;
+  }
+}
+
+/* Skip navigation links */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: #1d4ed8;
+  color: white;
+  padding: 8px;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: 600;
+  z-index: 50;
+  transition: top 0.15s;
+}
+
+.skip-link:focus {
+  top: 6px;
+}
+
+/* Live region styles for better screen reader experience */
+.sr-live-region {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/* Enhanced button styles with WCAG AA contrast */
+.btn-primary {
+  background-color: #1d4ed8;
+  color: #ffffff;
+  border: 2px solid transparent;
+  transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+}
+
+.btn-primary:hover {
+  background-color: #1e40af;
+}
+
+.btn-primary:focus {
+  outline: none;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.5);
+}
+
+.btn-primary:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* Color contrast utilities for WCAG AA compliance */
+.text-contrast-high {
+  color: #111827;
+}
+
+.text-contrast-medium {
+  color: #374151;
+}
+
+.bg-contrast-low {
+  background-color: #f9fafb;
+}
+
+/* Counter display enhancements */
+.counter-display {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Loading state styles */
+.loading-shimmer {
+  background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 50%, #f1f5f9 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-shimmer {
+    animation: none;
+    background: #e2e8f0;
+  }
 }

@@ -136,9 +136,6 @@ function useAppState() {
     targets?: Record<string, string>;
   }>({});
 
-  // リセット確認モーダル
-  const [showResetModal, setShowResetModal] = useState(false);
-
   return {
     settings,
     setSettings,
@@ -164,8 +161,6 @@ function useAppState() {
     setTempTargets,
     errors,
     setErrors,
-    showResetModal,
-    setShowResetModal,
   };
 }
 
@@ -294,10 +289,26 @@ function LoadingScreen() {
 function TargetCard({
   target,
   daysLeft,
+  colorIndex = 0,
 }: {
   target: TargetDate;
   daysLeft: number | undefined;
+  colorIndex?: number;
 }) {
+  // カード毎に異なる明るく多様な色を定義
+  const cardColors = [
+    { bg: 'bg-blue-900', text: 'text-blue-300' },
+    { bg: 'bg-emerald-500', text: 'text-emerald-50' },
+    { bg: 'bg-orange-500', text: 'text-orange-50' },
+    { bg: 'bg-rose-500', text: 'text-rose-50' },
+    { bg: 'bg-yellow-500', text: 'text-yellow-50' },
+    { bg: 'bg-violet-500', text: 'text-violet-50' },
+    { bg: 'bg-lime-500', text: 'text-lime-50' },
+    { bg: 'bg-cyan-500', text: 'text-cyan-50' },
+  ];
+
+  const colors = cardColors[colorIndex % cardColors.length]!;
+
   return (
     <div className="mb-8">
       <div className="mb-4 text-center">
@@ -305,19 +316,26 @@ function TargetCard({
           {target.label}
         </h2>
       </div>
-      <div className="rounded-3xl bg-blue-900 p-8 shadow-2xl md:p-16">
+      <div className={`rounded-3xl ${colors.bg} p-8 shadow-2xl md:p-16`}>
         <div className="text-center">
           <div className="mb-4">
-            <span className="text-2xl text-blue-300 md:text-3xl">
+            <span className={`text-2xl ${colors.text} md:text-3xl`}>
               {(daysLeft ?? 0) < 0 ? '経過' : 'あと'}
             </span>
           </div>
-          <div className="font-black text-6xl text-white tabular-nums sm:text-7xl md:text-8xl lg:text-9xl">
+          <div
+            aria-label={`残り${daysLeft !== undefined ? Math.abs(daysLeft).toLocaleString() : '計算中'}日`}
+            aria-live="polite"
+            className="font-black text-6xl text-white tabular-nums sm:text-7xl md:text-8xl lg:text-9xl"
+            role="status"
+          >
             {daysLeft !== undefined
               ? Math.abs(daysLeft).toLocaleString()
               : '---'}
           </div>
-          <div className="mt-4 text-3xl text-blue-300 md:text-4xl lg:text-5xl">
+          <div
+            className={`mt-4 text-3xl ${colors.text} md:text-4xl lg:text-5xl`}
+          >
             日
           </div>
         </div>
@@ -340,7 +358,12 @@ function LifeDaysCard({ daysLeft }: { daysLeft: number | null }) {
           <div className="mb-4">
             <span className="text-2xl text-slate-300 md:text-3xl">あと</span>
           </div>
-          <div className="font-black text-6xl text-white tabular-nums sm:text-7xl md:text-8xl lg:text-9xl">
+          <div
+            aria-label={`人生の残り${daysLeft !== null ? daysLeft.toLocaleString() : '計算中'}日`}
+            aria-live="polite"
+            className="font-black text-6xl text-white tabular-nums sm:text-7xl md:text-8xl lg:text-9xl"
+            role="status"
+          >
             {daysLeft !== null ? daysLeft.toLocaleString() : '---'}
           </div>
           <div className="mt-4 text-3xl text-slate-300 md:text-4xl lg:text-5xl">
@@ -495,8 +518,9 @@ function MainDisplay({
     <div className="space-y-8">
       {settings.targets.length > 0 && (
         <div className="space-y-8">
-          {settings.targets.map((target) => (
+          {settings.targets.map((target, index) => (
             <TargetCard
+              colorIndex={index}
               daysLeft={targetDaysLeft[target.id]}
               key={target.id}
               target={target}
@@ -510,7 +534,8 @@ function MainDisplay({
       <div className="flex flex-col justify-center gap-4 sm:gap-3">
         <div className="flex justify-center">
           <button
-            className="rounded-lg bg-blue-600 px-6 py-4 font-medium text-base text-white transition-colors hover:bg-blue-700 md:px-6 md:py-3 md:text-base"
+            aria-label="設定を変更する"
+            className="rounded-lg bg-blue-600 px-6 py-4 font-medium text-base text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 md:px-6 md:py-3 md:text-base"
             onClick={handleEdit}
             type="button"
           >
@@ -589,139 +614,39 @@ function SettingsForm({
         あなたの情報を入力
       </h2>
 
-      <div className="mb-8 space-y-6">
-        <div>
-          <div className="mb-3 block font-medium text-gray-700 text-sm">
-            生年月日
-          </div>
-          <div className="grid grid-cols-3 gap-2 md:gap-3">
-            <div>
-              <select
-                className="w-full rounded-lg border-2 border-gray-300 px-2 py-3 text-center font-medium text-base focus:border-blue-500 focus:outline-none md:px-3 md:text-lg"
-                onChange={(e) => setTempYear(e.target.value)}
-                value={tempYear}
-              >
-                <option value="">年</option>
-                {years.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <select
-                className="w-full rounded-lg border-2 border-gray-300 px-2 py-3 text-center font-medium text-base focus:border-blue-500 focus:outline-none md:px-3 md:text-lg"
-                onChange={(e) => setTempMonth(e.target.value)}
-                value={tempMonth}
-              >
-                <option value="">月</option>
-                {months.map((month) => (
-                  <option key={month} value={month}>
-                    {month}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <select
-                className="w-full rounded-lg border-2 border-gray-300 px-2 py-3 text-center font-medium text-base focus:border-blue-500 focus:outline-none md:px-3 md:text-lg"
-                onChange={(e) => setTempDay(e.target.value)}
-                value={tempDay}
-              >
-                <option value="">日</option>
-                {days.map((day) => (
-                  <option key={day} value={day}>
-                    {day}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          {errors.birthDate && (
-            <p className="mt-2 text-red-600 text-sm">{errors.birthDate}</p>
-          )}
-        </div>
-
-        <div>
-          <div className="mb-3 block font-medium text-gray-700 text-sm">
-            性別
-          </div>
-          <select
-            className="w-full rounded-lg border-2 border-gray-300 px-3 py-3 font-medium text-base focus:border-blue-500 focus:outline-none md:text-lg"
-            onChange={(e) => setTempGender(e.target.value as 'male' | 'female')}
-            value={tempGender}
-          >
-            <option value="male">男性</option>
-            <option value="female">女性</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="mb-8">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="font-medium text-gray-700 text-sm">
-            目標日（任意）
-          </div>
-          <button
-            className="rounded-lg bg-green-600 px-3 py-2 font-medium text-sm text-white transition-colors hover:bg-green-700"
-            onClick={addNewTarget}
-            type="button"
-          >
-            + 追加
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          {tempTargets.map((target) => (
-            <div
-              className="rounded-lg border border-gray-200 bg-gray-50 p-4"
-              key={target.id}
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <div className="font-medium text-gray-700 text-sm">目標名</div>
-                <button
-                  className="rounded-lg bg-red-600 px-3 py-1 font-medium text-sm text-white transition-colors hover:bg-red-700"
-                  onClick={() => removeTarget(target.id)}
-                  type="button"
-                >
-                  削除
-                </button>
-              </div>
-              <input
-                className="mb-3 w-full rounded-lg border-2 border-gray-300 px-3 py-2 text-base focus:border-blue-500 focus:outline-none"
-                onChange={(e) =>
-                  updateTarget(target.id, 'label', e.target.value)
-                }
-                placeholder="例: 誕生日まで"
-                type="text"
-                value={target.label}
-              />
-
-              <div className="mb-3 block font-medium text-gray-700 text-sm">
-                目標日
-              </div>
-              <div className="grid grid-cols-3 gap-2">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSave();
+        }}
+      >
+        <div className="mb-8 space-y-6">
+          <div>
+            <label className="mb-3 block font-medium text-gray-700 text-sm">
+              生年月日
+            </label>
+            <div className="grid grid-cols-3 gap-2 md:gap-3">
+              <div>
                 <select
-                  className="w-full rounded-lg border-2 border-gray-300 px-2 py-2 text-center text-base focus:border-blue-500 focus:outline-none"
-                  onChange={(e) =>
-                    updateTarget(target.id, 'year', e.target.value)
-                  }
-                  value={target.year}
+                  aria-label="生年"
+                  className="w-full rounded-lg border-2 border-gray-300 px-2 py-3 text-center font-medium text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 md:px-3 md:text-lg"
+                  onChange={(e) => setTempYear(e.target.value)}
+                  value={tempYear}
                 >
                   <option value="">年</option>
-                  {futureYears.map((year) => (
+                  {years.map((year) => (
                     <option key={year} value={year}>
                       {year}
                     </option>
                   ))}
                 </select>
+              </div>
+              <div>
                 <select
-                  className="w-full rounded-lg border-2 border-gray-300 px-2 py-2 text-center text-base focus:border-blue-500 focus:outline-none"
-                  onChange={(e) =>
-                    updateTarget(target.id, 'month', e.target.value)
-                  }
-                  value={target.month}
+                  aria-label="生月"
+                  className="w-full rounded-lg border-2 border-gray-300 px-2 py-3 text-center font-medium text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 md:px-3 md:text-lg"
+                  onChange={(e) => setTempMonth(e.target.value)}
+                  value={tempMonth}
                 >
                   <option value="">月</option>
                   {months.map((month) => (
@@ -730,12 +655,13 @@ function SettingsForm({
                     </option>
                   ))}
                 </select>
+              </div>
+              <div>
                 <select
-                  className="w-full rounded-lg border-2 border-gray-300 px-2 py-2 text-center text-base focus:border-blue-500 focus:outline-none"
-                  onChange={(e) =>
-                    updateTarget(target.id, 'day', e.target.value)
-                  }
-                  value={target.day}
+                  aria-label="生日"
+                  className="w-full rounded-lg border-2 border-gray-300 px-2 py-3 text-center font-medium text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 md:px-3 md:text-lg"
+                  onChange={(e) => setTempDay(e.target.value)}
+                  value={tempDay}
                 >
                   <option value="">日</option>
                   {days.map((day) => (
@@ -745,34 +671,155 @@ function SettingsForm({
                   ))}
                 </select>
               </div>
-              {errors.targets?.[target.id] && (
-                <p className="mt-2 text-red-600 text-sm">
-                  {errors.targets[target.id]}
-                </p>
-              )}
             </div>
-          ))}
-        </div>
-      </div>
+            {errors.birthDate && (
+              <p className="mt-2 text-red-600 text-sm" role="alert">
+                {errors.birthDate}
+              </p>
+            )}
+          </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-        <button
-          className="rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700"
-          onClick={handleSave}
-          type="button"
-        >
-          保存
-        </button>
-        {settings && (
+          <div>
+            <label className="mb-3 block font-medium text-gray-700 text-sm">
+              性別
+            </label>
+            <select
+              aria-label="性別"
+              className="w-full rounded-lg border-2 border-gray-300 px-3 py-3 font-medium text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 md:text-lg"
+              onChange={(e) =>
+                setTempGender(e.target.value as 'male' | 'female')
+              }
+              value={tempGender}
+            >
+              <option value="male">男性</option>
+              <option value="female">女性</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="mb-8">
+          <div className="mb-4 flex items-center justify-between">
+            <label className="font-medium text-gray-700 text-sm">
+              目標日（任意）
+            </label>
+            <button
+              aria-label="新しい目標日を追加"
+              className="rounded-lg bg-green-600 px-3 py-2 font-medium text-sm text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+              onClick={addNewTarget}
+              type="button"
+            >
+              + 追加
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {tempTargets.map((target) => (
+              <div
+                className="rounded-lg border border-gray-200 bg-gray-50 p-4"
+                key={target.id}
+              >
+                <div className="mb-3 flex items-center justify-between">
+                  <label className="font-medium text-gray-700 text-sm">
+                    目標名
+                  </label>
+                  <button
+                    aria-label="この目標を削除"
+                    className="rounded-lg bg-red-600 px-3 py-1 font-medium text-sm text-white transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                    onClick={() => removeTarget(target.id)}
+                    type="button"
+                  >
+                    削除
+                  </button>
+                </div>
+                <input
+                  aria-label="目標名"
+                  className="mb-3 w-full rounded-lg border-2 border-gray-300 px-3 py-2 text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) =>
+                    updateTarget(target.id, 'label', e.target.value)
+                  }
+                  placeholder="例: 誕生日まで"
+                  type="text"
+                  value={target.label}
+                />
+
+                <label className="mb-3 block font-medium text-gray-700 text-sm">
+                  目標日
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <select
+                    aria-label="目標年"
+                    className="w-full rounded-lg border-2 border-gray-300 px-2 py-2 text-center text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) =>
+                      updateTarget(target.id, 'year', e.target.value)
+                    }
+                    value={target.year}
+                  >
+                    <option value="">年</option>
+                    {futureYears.map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label="目標月"
+                    className="w-full rounded-lg border-2 border-gray-300 px-2 py-2 text-center text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) =>
+                      updateTarget(target.id, 'month', e.target.value)
+                    }
+                    value={target.month}
+                  >
+                    <option value="">月</option>
+                    {months.map((month) => (
+                      <option key={month} value={month}>
+                        {month}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label="目標日"
+                    className="w-full rounded-lg border-2 border-gray-300 px-2 py-2 text-center text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) =>
+                      updateTarget(target.id, 'day', e.target.value)
+                    }
+                    value={target.day}
+                  >
+                    <option value="">日</option>
+                    {days.map((day) => (
+                      <option key={day} value={day}>
+                        {day}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {errors.targets?.[target.id] && (
+                  <p className="mt-2 text-red-600 text-sm" role="alert">
+                    {errors.targets[target.id]}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
           <button
-            className="rounded-lg bg-gray-600 px-6 py-3 font-medium text-white transition-colors hover:bg-gray-700"
-            onClick={handleCancel}
-            type="button"
+            className="rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            type="submit"
           >
-            キャンセル
+            保存
           </button>
-        )}
-      </div>
+          {settings && (
+            <button
+              className="rounded-lg bg-gray-600 px-6 py-3 font-medium text-white transition-colors hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+              onClick={handleCancel}
+              type="button"
+            >
+              キャンセル
+            </button>
+          )}
+        </div>
+      </form>
     </div>
   );
 }
@@ -801,8 +848,6 @@ export default function Home() {
     setTempTargets,
     errors,
     setErrors,
-    showResetModal,
-    setShowResetModal,
   } = useAppState();
 
   const { calculateDaysLeft, calculateTargetDaysLeft } = useDateCalculations();
@@ -915,34 +960,6 @@ export default function Home() {
     }
   };
 
-  const handleResetConfirm = () => {
-    localStorage.removeItem('daysLeftSettings');
-    const defaultSettings = createDefaultSettings();
-    setSettings(defaultSettings);
-    setDaysLeft(null);
-    setTargetDaysLeft({});
-    setTempYear(defaultSettings.birthYear.toString());
-    setTempMonth(defaultSettings.birthMonth.toString());
-    setTempDay(defaultSettings.birthDay.toString());
-    setTempGender(defaultSettings.gender);
-    setTempTargets(
-      defaultSettings.targets.map((target) => ({
-        id: target.id,
-        year: target.year.toString(),
-        month: target.month.toString(),
-        day: target.day.toString(),
-        label: target.label,
-      }))
-    );
-    setIsEditing(true);
-    setShowResetModal(false);
-    setErrors({});
-  };
-
-  const handleResetCancel = () => {
-    setShowResetModal(false);
-  };
-
   if (isLoading) {
     return <LoadingScreen />;
   }
@@ -981,35 +998,6 @@ export default function Home() {
           tempTargets={tempTargets}
           tempYear={tempYear}
         />
-      )}
-
-      {showResetModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="mx-4 w-full max-w-md rounded-lg bg-white p-6">
-            <h3 className="mb-4 font-bold text-gray-900 text-lg">
-              設定をリセット
-            </h3>
-            <p className="mb-6 text-gray-600">
-              すべての設定がリセットされます。この操作は元に戻せません。
-            </p>
-            <div className="flex gap-3">
-              <button
-                className="flex-1 rounded-lg bg-red-600 py-3 font-medium text-white transition-colors hover:bg-red-700"
-                onClick={handleResetConfirm}
-                type="button"
-              >
-                リセット
-              </button>
-              <button
-                className="flex-1 rounded-lg bg-gray-600 py-3 font-medium text-white transition-colors hover:bg-gray-700"
-                onClick={handleResetCancel}
-                type="button"
-              >
-                キャンセル
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </main>
   );
