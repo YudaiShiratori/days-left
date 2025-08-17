@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 // Service Worker Version - Update this to force cache invalidation
-const SW_VERSION = '2025-08-16-v3-FORCE-RESET';
+const SW_VERSION = '2025-08-17-v4-FIREFOX-FIX';
 
 import {
   cleanupOutdatedCaches,
@@ -65,6 +65,29 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+
+  // 強制更新リクエスト処理
+  if (event.data && event.data.type === 'FORCE_UPDATE') {
+    // 全キャッシュを削除して即座更新
+    caches
+      .keys()
+      .then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            return caches.delete(cacheName);
+          })
+        );
+      })
+      .then(() => {
+        self.skipWaiting();
+        // クライアントに更新完了を通知
+        self.clients.matchAll().then((clients) => {
+          for (const client of clients) {
+            client.postMessage({ type: 'CACHE_CLEARED' });
+          }
+        });
+      });
+  }
 });
 
 // インストール時に即座にアクティブ化を試行
@@ -95,35 +118,48 @@ self.addEventListener('activate', (event) => {
 
 // HTMLページは常にネットワークから取得（キャッシュバイパス）
 registerRoute(
-  ({ request }) => request.mode === 'navigate',
+  ({ request }) => {
+    // クエリパラメータ付きリクエストは除外してループを防ぐ
+    const url = new URL(request.url);
+    if (
+      url.searchParams.has('_cache_bust') ||
+      url.searchParams.has('_sw_version')
+    ) {
+      return false;
+    }
+    return request.mode === 'navigate';
+  },
   async ({ request }) => {
     try {
-      // 常にネットワークから最新版を取得
-      const url = new URL(request.url);
-      url.searchParams.set('_cache_bust', Date.now().toString());
-      url.searchParams.set('_sw_version', SW_VERSION);
-
-      const networkRequest = new Request(url.href, {
+      // ヘッダーでキャッシュ制御（URLは変更しない）
+      const networkRequest = new Request(request.url, {
         method: request.method,
         headers: {
           ...Object.fromEntries(request.headers.entries()),
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           Pragma: 'no-cache',
           Expires: '0',
+          // Service Workerバージョンをヘッダーで送信
+          'X-SW-Version': SW_VERSION,
         },
         body: request.body,
         mode: request.mode,
         credentials: request.credentials,
-        cache: 'no-store', // 完全にキャッシュを無効化
+        cache: 'no-store',
         redirect: request.redirect,
       });
 
       return await fetch(networkRequest);
     } catch (error) {
-      const cache = await caches.open('pages-fallback');
-      const cachedResponse = await cache.match(request);
-      if (cachedResponse) {
-        return cachedResponse;
+      // フォールバック処理（元のリクエストでキャッシュをチェック）
+      try {
+        const cache = await caches.open('pages-fallback');
+        const cachedResponse = await cache.match(request);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+      } catch (_cacheError) {
+        // キャッシュアクセスエラーは無視して続行
       }
       throw error;
     }

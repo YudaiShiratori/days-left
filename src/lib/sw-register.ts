@@ -38,7 +38,7 @@ const checkServiceWorkerVersion = async (
 };
 
 // Service Workerクリーンアップ
-const cleanupServiceWorkers = async (): Promise<void> => {
+const _cleanupServiceWorkers = async (): Promise<void> => {
   try {
     const registrations = await navigator.serviceWorker.getRegistrations();
     await Promise.all(
@@ -141,13 +141,55 @@ const setupServiceWorker = async (wb: Workbox): Promise<void> => {
   }
 };
 
+// 強制更新関数
+const forceServiceWorkerUpdate = async (): Promise<void> => {
+  try {
+    // 既存のService Workerに強制更新を指示
+    if (navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'FORCE_UPDATE' });
+
+      // 更新完了を待つ
+      await new Promise<void>((resolve) => {
+        const messageHandler = (event: MessageEvent) => {
+          if (event.data && event.data.type === 'CACHE_CLEARED') {
+            navigator.serviceWorker.removeEventListener(
+              'message',
+              messageHandler
+            );
+            resolve();
+          }
+        };
+        navigator.serviceWorker.addEventListener('message', messageHandler);
+
+        // 3秒でタイムアウト
+        setTimeout(() => {
+          navigator.serviceWorker.removeEventListener(
+            'message',
+            messageHandler
+          );
+          resolve();
+        }, 3000);
+      });
+    }
+
+    // 全キャッシュを手動でクリア
+    await clearServiceWorkerCache();
+
+    // ページリロード
+    window.location.reload();
+  } catch (_error) {
+    // エラーが発生してもリロードで続行
+    window.location.reload();
+  }
+};
+
 export const registerServiceWorker = async (): Promise<void> => {
   if (!(isProduction && isClient && 'serviceWorker' in navigator)) {
     return;
   }
 
   try {
-    const EXPECTED_SW_VERSION = '2025-08-16-v3-FORCE-RESET';
+    const EXPECTED_SW_VERSION = '2025-08-17-v4-FIREFOX-FIX';
     const controller = navigator.serviceWorker.controller;
     let needsCleanup = false;
 
@@ -162,22 +204,16 @@ export const registerServiceWorker = async (): Promise<void> => {
     }
 
     if (needsCleanup) {
-      await cleanupServiceWorkers();
+      // スマホでの問題を解決するために強制更新を使用
+      await forceServiceWorkerUpdate();
       return;
     }
 
     const wb = new Workbox('/sw-v2.js');
     await setupServiceWorker(wb);
   } catch {
-    // 最後の手段としてキャッシュクリア
-    try {
-      if ('caches' in window) {
-        const cacheNames = await caches.keys();
-        await Promise.all(cacheNames.map((name) => caches.delete(name)));
-      }
-    } catch {
-      // 最終クリーンアップ失敗も無視
-    }
+    // 最後の手段として強制更新
+    await forceServiceWorkerUpdate();
   }
 };
 
